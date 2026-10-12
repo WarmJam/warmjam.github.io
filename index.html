@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>WarmJam 的个人主页</title>
-<script>document.documentElement.classList.add('intro-pending');</script>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
@@ -16,85 +15,6 @@
   header { text-align: center; padding: 40px 0 24px; }
   header h1 { font-size: 2.6rem; letter-spacing: 2px; }
   header h1 .dot { color: #ffd93b; }
-  /* ---- 开场小剧场（小黑猫片头）---- */
-  .intro-stage { position: relative; height: 150px; overflow: hidden; }
-  @media (max-width: 640px) { .intro-stage { height: 124px; } }
-  html.intro-pending #siteTitle { opacity: 0; }
-  .intro-title-wrap {
-    position: absolute; inset: 0; display: flex; align-items: center;
-    justify-content: center; pointer-events: none;
-  }
-  #siteTitle { margin: 0; }
-  #siteTitle.slam { animation: title-slam .5s cubic-bezier(.2,.9,.3,1.15) forwards; }
-  @keyframes title-slam {
-    0% { transform: translateY(-260px); opacity: 0; }
-    15% { opacity: 1; }
-    70% { transform: translateY(10px); opacity: 1; }
-    88% { transform: translateY(-7px); }
-    100% { transform: translateY(0); opacity: 1; }
-  }
-  .intro-stage.shake { animation: stage-shake .3s linear; }
-  @keyframes stage-shake {
-    0%, 100% { transform: translateX(0); }
-    25% { transform: translateX(-6px); }
-    50% { transform: translateX(5px); }
-    75% { transform: translateX(-3px); }
-  }
-  .intro-fish {
-    position: absolute; left: 9%; bottom: 16px; width: 58px;
-    transition: transform .3s ease-in, opacity .3s;
-  }
-  .intro-fish.grabbed { transform: translate(34px, -26px) scale(.15); opacity: 0; }
-  .intro-btn { position: absolute; left: 50%; transform: translateX(-50%); bottom: 12px; width: 66px; height: 66px; }
-  .intro-btn-base {
-    position: absolute; inset: 0; border-radius: 50%;
-    background: radial-gradient(circle at 35% 30%, #8a2b2b, #4d1212);
-    box-shadow: 0 4px 0 #2a0b0b;
-  }
-  .intro-btn-top {
-    position: absolute; left: 7px; top: 2px; width: 52px; height: 52px; border-radius: 50%;
-    background: radial-gradient(circle at 35% 30%, #ff6b6b, #d63030 70%);
-    box-shadow: 0 3px 8px rgba(0,0,0,.4); transition: transform .12s;
-  }
-  .intro-btn.pressed .intro-btn-top { transform: translateY(8px); }
-  .intro-cat {
-    position: absolute; bottom: 8px; left: 108%; width: 112px;
-    transition: left .85s cubic-bezier(.4,.1,.6,1);
-  }
-  @media (max-width: 640px) { .intro-cat { width: 86px; } }
-  .intro-cat .cat-svg { display: block; width: 100%; height: auto; }
-  .intro-cat.running .cat-svg { animation: cat-bob .18s ease-in-out infinite alternate; }
-  @keyframes cat-bob {
-    from { transform: translateY(0) rotate(-2deg); }
-    to { transform: translateY(-7px) rotate(2deg); }
-  }
-  .intro-cat.running .leg-a { animation: leg-run .18s ease-in-out infinite alternate; }
-  .intro-cat.running .leg-b { animation: leg-run .18s ease-in-out infinite alternate-reverse; }
-  @keyframes leg-run { from { transform: translateY(0); } to { transform: translateY(-6px); } }
-  .intro-cat.dip .cat-svg { transform: translateY(9px); transition: transform .15s; }
-  .intro-cat.leaping { animation: cat-leap .65s ease-in forwards; transition: none; }
-  @keyframes cat-leap {
-    0% { left: 40%; bottom: 8px; transform: rotate(0deg); }
-    35% { left: 24%; bottom: 98px; transform: rotate(-18deg); }
-    100% { left: -34%; bottom: 6px; transform: rotate(-32deg); }
-  }
-  .cat-fish { position: absolute; left: -8px; top: 36%; width: 36px; opacity: 0; transition: opacity .2s; }
-  .cat-fish.show { opacity: 1; }
-  .intro-dust { position: absolute; left: 50%; bottom: 36px; width: 0; height: 0; pointer-events: none; }
-  .intro-dust span {
-    position: absolute; width: 14px; height: 14px; border-radius: 50%;
-    background: rgba(255,217,59,.55); opacity: 0;
-  }
-  .intro-dust span:nth-child(1) { --dx: -52px; left: -7px; top: -7px; }
-  .intro-dust span:nth-child(2) { --dx: 0px; left: -7px; top: -11px; }
-  .intro-dust span:nth-child(3) { --dx: 52px; left: -7px; top: -7px; }
-  .intro-dust.puff span { animation: dust-puff .5s ease-out forwards; }
-  .intro-dust.puff span:nth-child(2) { animation-delay: .05s; }
-  .intro-dust.puff span:nth-child(3) { animation-delay: .1s; }
-  @keyframes dust-puff {
-    0% { opacity: .9; transform: translate(0, 0) scale(.4); }
-    100% { opacity: 0; transform: translate(var(--dx), -34px) scale(1.4); }
-  }
   header p { margin-top: 12px; color: #a8c0d0; font-size: 1.05rem; }
   .badges { margin-top: 18px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
   .badge {
@@ -235,43 +155,7 @@
 <div class="wrap">
 
   <header>
-    <div class="intro-stage" id="introStage" aria-hidden="true">
-      <!-- 小鱼干 -->
-      <svg class="intro-fish" id="introFish" viewBox="0 0 90 50">
-        <ellipse cx="38" cy="25" rx="26" ry="13" fill="#d9a75f"/>
-        <polygon points="62,25 86,10 86,40" fill="#c08b45"/>
-        <circle cx="24" cy="21" r="3.2" fill="#5a3d1e"/>
-        <path d="M38,14 L38,36 M48,16 L48,34 M30,16 L30,34" stroke="#b07f3e" stroke-width="2"/>
-      </svg>
-      <!-- 红色按钮 -->
-      <div class="intro-btn" id="introBtn"><div class="intro-btn-base"></div><div class="intro-btn-top"></div></div>
-      <!-- 小黑猫 -->
-      <div class="intro-cat" id="introCat">
-        <svg class="cat-svg" viewBox="0 0 140 112">
-          <path d="M112,78 C128,74 132,50 122,36" stroke="#161616" stroke-width="15" fill="none" stroke-linecap="round"/>
-          <rect class="leg-b" x="88" y="88" width="13" height="16" rx="6.5" fill="#161616"/>
-          <ellipse cx="80" cy="70" rx="37" ry="28" fill="#1b1b1b"/>
-          <rect class="leg-a" x="62" y="88" width="13" height="16" rx="6.5" fill="#1b1b1b"/>
-          <circle cx="50" cy="52" r="28" fill="#1b1b1b"/>
-          <polygon points="30,34 34,8 50,28" fill="#1b1b1b"/>
-          <polygon points="58,28 70,10 74,32" fill="#1b1b1b"/>
-          <ellipse cx="40" cy="50" rx="8.5" ry="11" fill="#ffcf4d"/>
-          <ellipse cx="38.5" cy="52" rx="3.6" ry="6.5" fill="#101010"/>
-          <ellipse cx="60" cy="48" rx="5.5" ry="8" fill="#ffcf4d" opacity="0.95"/>
-          <ellipse cx="59" cy="50" rx="2.4" ry="4.6" fill="#101010"/>
-          <path d="M32,68 q4,4 8,0 q4,4 8,0" stroke="#3d3d3d" stroke-width="2.5" fill="none" stroke-linecap="round"/>
-        </svg>
-        <svg class="cat-fish" id="catFish" viewBox="0 0 90 50">
-          <ellipse cx="38" cy="25" rx="26" ry="13" fill="#d9a75f"/>
-          <polygon points="62,25 86,10 86,40" fill="#c08b45"/>
-          <circle cx="24" cy="21" r="3.2" fill="#5a3d1e"/>
-        </svg>
-      </div>
-      <!-- 大字砸下来 -->
-      <div class="intro-title-wrap"><h1 id="siteTitle">WarmJam<span class="dot">.</span></h1></div>
-      <!-- 落地尘土 -->
-      <div class="intro-dust" id="introDust"><span></span><span></span><span></span></div>
-    </div>
+    <h1>WarmJam<span class="dot">.</span></h1>
     <p>你好，我是 WarmJam —— 这里是我的个人小站，由Meta muse制作。</p>
     <div class="badges">
       <span class="badge">🐱 养猫预备军</span>
@@ -532,57 +416,6 @@
       else { v.pause(); }
     });
   });
-})();
-</script>
-<script>
-(function () {
-  // 开场小剧场：小鱼干 -> 红按钮 -> 小黑猫跑入叼鱼 -> 踩按钮 -> 大字砸下 -> 猫跳走
-  // 每个会话只播一次；尊重 prefers-reduced-motion；无 JS 时直接显示标题
-  var stage = document.getElementById('introStage');
-  if (!stage) return;
-  var title = document.getElementById('siteTitle');
-  var cat = document.getElementById('introCat');
-  var fish = document.getElementById('introFish');
-  var catFish = document.getElementById('catFish');
-  var btn = document.getElementById('introBtn');
-  var dust = document.getElementById('introDust');
-  var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  var played = false;
-  try { played = !!sessionStorage.getItem('wjIntro'); } catch (e) {}
-  function finish() {
-    [fish, btn, cat, dust].forEach(function (el) { el.style.display = 'none'; });
-    title.classList.remove('slam');
-    title.style.opacity = '1';
-    title.style.transform = 'none';
-    stage.classList.remove('shake');
-    stage.removeAttribute('aria-hidden');
-    document.documentElement.classList.remove('intro-pending');
-    try { sessionStorage.setItem('wjIntro', '1'); } catch (e) {}
-  }
-  if (reduce || played) { finish(); return; }
-  function at(ms, fn) { setTimeout(fn, ms); }
-  at(750, function () {           // 小猫从右侧跑入
-    cat.classList.add('running');
-    cat.style.left = '17%';
-  });
-  at(1650, function () {         // 叼住小鱼干
-    cat.classList.remove('running');
-    fish.classList.add('grabbed');
-    setTimeout(function () { catFish.classList.add('show'); }, 220);
-  });
-  at(1950, function () { cat.style.left = '40%'; });   // 挪到按钮前
-  at(2450, function () {         // 踩下红色按钮
-    cat.classList.add('dip');
-    btn.classList.add('pressed');
-    setTimeout(function () { cat.classList.remove('dip'); btn.classList.remove('pressed'); }, 260);
-  });
-  at(2650, function () { title.classList.add('slam'); });   // 大字砸下
-  at(2680, function () { cat.classList.add('leaping'); });   // 字落地前猫跳走
-  at(3120, function () {         // 落地震屏 + 尘土
-    stage.classList.add('shake');
-    dust.classList.add('puff');
-  });
-  at(3600, finish);
 })();
 </script>
 <script>
