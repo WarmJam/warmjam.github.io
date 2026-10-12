@@ -168,6 +168,7 @@
       <div class="row" style="justify-content:center;margin-top:10px">
         <a class="btn ghost" href="#" id="hkBtn">📷 香港</a>
         <a class="btn ghost" href="#" id="qdBtn">📷 青岛</a>
+        <a class="btn ghost" href="#" id="ahBtn">📷 安徽</a>
       </div>
     </div>
   </section>
@@ -258,6 +259,62 @@
   <div class="film-hint">左右滑动或点击箭头浏览 · 点击空白处 / ✕ 关闭</div>
 </div>
 
+<!-- 安徽胶片 viewer -->
+<div class="film-modal" id="ahModal" role="dialog" aria-label="安徽旅行照片">
+  <button class="film-close" aria-label="关闭">✕</button>
+  <div class="film-strip">
+    <div class="sprockets"></div>
+    <div class="frames">
+      <figure class="frame">
+        <img src="ah-1.jpg" alt="安徽林间小道">
+        <figcaption>林荫漫步</figcaption>
+      </figure>
+      <figure class="frame">
+        <img src="ah-2.jpg" alt="安徽登高望远城市俯瞰">
+        <figcaption>登高望远</figcaption>
+      </figure>
+      <figure class="frame">
+        <img src="ah-3.jpg" alt="安徽湖边古桥">
+        <figcaption>古桥映水</figcaption>
+      </figure>
+      <figure class="frame">
+        <img src="ah-4.jpg" alt="安徽湖畔花坛">
+        <figcaption>湖畔花开</figcaption>
+      </figure>
+      <figure class="frame">
+        <img src="ah-5.jpg" alt="安徽古塔">
+        <figcaption>古塔凌云</figcaption>
+      </figure>
+      <figure class="frame">
+        <img src="ah-6.jpg" alt="安徽湖光山色">
+        <figcaption>湖光山色</figcaption>
+      </figure>
+      <figure class="frame">
+        <img src="ah-7.jpg" alt="安徽垂柳湖畔">
+        <figcaption>垂柳依依</figcaption>
+      </figure>
+      <figure class="frame">
+        <img src="ah-8.jpg" alt="安徽城市天际线倒影">
+        <figcaption>水天一色</figcaption>
+      </figure>
+      <figure class="frame">
+        <img src="ah-9.jpg" alt="安徽芦苇秋色">
+        <figcaption>芦花秋色</figcaption>
+      </figure>
+      <figure class="frame">
+        <img src="ah-10.jpg" alt="安徽草原风光">
+        <figcaption>草原风光</figcaption>
+      </figure>
+    </div>
+    <div class="sprockets"></div>
+  </div>
+  <div class="film-ui">
+    <button class="film-btn" aria-label="上一张">‹</button>
+    <button class="film-btn" aria-label="下一张">›</button>
+  </div>
+  <div class="film-hint">左右滑动或点击箭头浏览 · 点击空白处 / ✕ 关闭</div>
+</div>
+
 <!-- 青岛胶片 viewer -->
 <div class="film-modal" id="qdModal" role="dialog" aria-label="青岛旅行照片">
   <button class="film-close" aria-label="关闭">✕</button>
@@ -325,6 +382,7 @@
   }
   wireViewer('hkBtn', 'filmModal');
   wireViewer('qdBtn', 'qdModal');
+  wireViewer('ahBtn', 'ahModal');
 })();
 </script>
 <script>
