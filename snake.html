@@ -88,7 +88,7 @@
   <!-- 菜单 -->
   <div id="menu" class="screen">
     <div class="card">
-      <p class="desc">吃掉红色食物变长，别撞墙、也别咬到自己。<br>难度越高，蛇跑得越快，吃一颗得分也越高（10×难度）。</p>
+      <p class="desc">吃掉红色食物变长，别撞墙、也别咬到自己。<br>难度越高，蛇跑得越快，吃一颗得分也越高（10分起，每级+2分）。</p>
       <div class="diff-box">
         <label>难度 <b id="diffVal">5</b> <span class="diff-tag" id="diffTag"></span></label>
         <input type="range" id="diff" min="1" max="10" value="5" step="1">
@@ -258,7 +258,7 @@
     }
     snake.unshift(head);
     if (eat) {
-      score += 10 * diff; // 难度越高，每颗丸子分越高
+      score += 8 + 2 * diff; // 难度1一颗10分，难度10一颗28分，随难度温和递增
       placeFood();
     } else {
       snake.pop();
