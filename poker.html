@@ -660,6 +660,7 @@
       }
     }
     save.hands++;
+    document.getElementById('handMsg').textContent = '翻牌前';
     log('—— 第 ' + save.hands + ' 局开始，按钮：' + players[buttonIdx].name + ' ——');
     render();
     await bettingRound('preflop');
