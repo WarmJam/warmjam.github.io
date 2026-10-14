@@ -296,35 +296,48 @@
 
   /* ---------- AI 决策 ---------- */
   function raiseTarget(ai, mult) {
-    var target = currentBet + lastRaiseSize * mult;
-    var maxBet = ai.bet + ai.chips;
+    var target = Math.round(currentBet + lastRaiseSize * mult);
+    var maxBet = ai.betRound + ai.chips;
     return Math.min(target, maxBet);
   }
-  function decideGood(ai, strength, toCall, pers) {
+  // 加注尺度随机化：同牌力不总是同注额，难摸规律
+  function pickRaiseMult(strength) {
+    var r = Math.random();
+    if (strength > 0.88) return r < 0.3 ? 1.5 : (r < 0.6 ? 2 : (r < 0.85 ? 2.5 : 3));
+    if (strength > 0.75) return r < 0.5 ? 1 : (r < 0.8 ? 1.5 : 2);
+    return r < 0.6 ? 1 : 1.5;
+  }
+  function decideGood(ai, strength, toCall, adj) {
     if (toCall === 0) {
+      // 慢玩：超强牌偶尔过牌设陷阱
+      if (strength > 0.85 && Math.random() < 0.25) return { type: 'check' };
       if (strength > 0.62) {
-        if (ai.chips >= lastRaiseSize) return { type: 'raise', to: raiseTarget(ai, 1) };
-        if (strength > 0.8 && ai.chips > 0) return { type: 'allin', to: ai.bet + ai.chips };
+        if (strength > 0.90 && Math.random() < 0.12 && ai.chips > 0) return { type: 'allin', to: ai.betRound + ai.chips };
+        if (ai.chips >= lastRaiseSize) return { type: 'raise', to: raiseTarget(ai, pickRaiseMult(strength)) };
+        if (strength > 0.8 && ai.chips > 0) return { type: 'allin', to: ai.betRound + ai.chips };
         return { type: 'check' };
       }
-      if (strength < 0.30 && Math.random() < pers.bluff) {
-        if (ai.chips >= lastRaiseSize) return { type: 'raise', to: raiseTarget(ai, 1) };
+      if (strength < 0.30 && Math.random() < adj.bluff) {
+        if (ai.chips >= lastRaiseSize) return { type: 'raise', to: raiseTarget(ai, pickRaiseMult(0.4)) };
       }
       return { type: 'check' };
     }
     var potOdds = toCall / (pot + toCall);
     if (ai.chips <= toCall) { // 只能全下跟注或弃牌
-      return (strength > potOdds + pers.margin) ? { type: 'call' } : { type: 'fold' };
+      return (strength > potOdds + adj.margin) ? { type: 'call' } : { type: 'fold' };
     }
-    if (strength < potOdds + pers.margin) {
-      if (Math.random() < pers.bluff && raisesThisRound < 3 && ai.chips > toCall + lastRaiseSize) {
-        return { type: 'raise', to: raiseTarget(ai, 1) };
+    if (strength < potOdds + adj.margin) {
+      if (Math.random() < adj.bluff && raisesThisRound < 3 && ai.chips > toCall + lastRaiseSize) {
+        return { type: 'raise', to: raiseTarget(ai, pickRaiseMult(0.4)) };
       }
       return { type: 'fold' };
     }
-    if (strength > pers.raiseThresh && raisesThisRound < 3) {
-      if (ai.chips > toCall + lastRaiseSize) return { type: 'raise', to: raiseTarget(ai, strength > 0.88 ? 2 : 1) };
-      if (strength > 0.8) return { type: 'allin', to: ai.bet + ai.chips };
+    // 慢玩：超强牌偶尔只跟注设陷阱
+    if (strength > 0.85 && Math.random() < 0.20) return { type: 'call' };
+    if (strength > adj.raiseThresh && raisesThisRound < 3) {
+      if (strength > 0.90 && Math.random() < 0.12) return { type: 'allin', to: ai.betRound + ai.chips };
+      if (ai.chips > toCall + lastRaiseSize) return { type: 'raise', to: raiseTarget(ai, pickRaiseMult(strength)) };
+      if (strength > 0.8) return { type: 'allin', to: ai.betRound + ai.chips };
     }
     return { type: 'call' };
   }
@@ -333,22 +346,24 @@
     if (toCall === 0) {
       if (r < 0.20) return { type: 'fold' };
       if (r < 0.55) return { type: 'check' };
-      if (r < 0.85) return (ai.chips >= lastRaiseSize) ? { type: 'raise', to: raiseTarget(ai, 1) } : { type: 'check' };
-      return { type: 'allin', to: ai.bet + ai.chips };
+      if (r < 0.85) return (ai.chips >= lastRaiseSize) ? { type: 'raise', to: raiseTarget(ai, pickRaiseMult(0.5)) } : { type: 'check' };
+      return { type: 'allin', to: ai.betRound + ai.chips };
     }
     if (r < 0.25) return { type: 'fold' };
     if (r < 0.60) return { type: 'call' };
     if (r < 0.85) {
-      if (raisesThisRound < 3 && ai.chips > toCall + lastRaiseSize) return { type: 'raise', to: raiseTarget(ai, 1) };
+      if (raisesThisRound < 3 && ai.chips > toCall + lastRaiseSize) return { type: 'raise', to: raiseTarget(ai, pickRaiseMult(0.5)) };
       return { type: 'call' };
     }
-    return { type: 'allin', to: ai.bet + ai.chips };
+    return { type: 'allin', to: ai.betRound + ai.chips };
   }
   function aiDecide(ai) {
-    var toCall = currentBet - ai.bet;
-    var pers = PERSONALITIES[ai.pers];
+    var toCall = currentBet - ai.betRound;
+    var pers = PERSONALITIES[ai.pers] || PERSONALITIES['阿松']; // 防御：无性格时用默认
+    var mood = ai.mood || 0; // 每局手气抖动：同位置同牌不总是同决策
+    var adj = { margin: pers.margin + mood, raiseThresh: pers.raiseThresh + mood, bluff: pers.bluff };
     var strength = handStrength(ai);
-    var good = decideGood(ai, strength, toCall, pers);
+    var good = decideGood(ai, strength, toCall, adj);
     if (ai.pers === '阿糊涂' && Math.random() < pers.jitter) {
       return randomAction(ai, toCall); // 好决策 + 剧烈抖动
     }
@@ -403,7 +418,7 @@
       '<div><span class="s-name">' + p.name + '</span>' + persHtml + dealerHtml + '</div>' +
       '<div class="s-cards">' + cardsHtml + '</div>' +
       '<div class="s-chips">' + p.chips + ' 筹码</div>' +
-      '<div class="s-bet">' + (p.bet > 0 ? '已下注 ' + p.bet : '') + '</div>' +
+      '<div class="s-bet">' + (p.betRound > 0 ? '已下注 ' + p.betRound : '') + '</div>' +
       '<div class="s-hand">' + handHtml + '</div>';
   }
 
@@ -411,7 +426,7 @@
   function updateControls() {
     var human = players[0];
     var myTurn = gameRunning && currentTurnIdx === 0 && !human.folded && !human.allIn;
-    var toCall = currentBet - human.bet;
+    var toCall = currentBet - human.betRound;
     var foldBtn = document.getElementById('foldBtn');
     var checkBtn = document.getElementById('checkBtn');
     var callBtn = document.getElementById('callBtn');
@@ -424,14 +439,14 @@
     callBtn.textContent = toCall > 0 ? '跟注 ' + Math.min(toCall, human.chips) : '跟注';
     var canRaise = myTurn && raisesThisRound < 3 && human.chips > toCall && human.chips >= toCall + lastRaiseSize;
     raiseBtn.disabled = !canRaise;
-    raiseBtn.textContent = '加注到 ' + (currentBet + lastRaiseSize);
+    raiseBtn.textContent = myTurn ? '加注到 ' + (currentBet + lastRaiseSize) : '加注';
     allinBtn.disabled = !(myTurn && human.chips > 0);
-    allinBtn.textContent = '全下 (' + human.chips + ')';
+    allinBtn.textContent = myTurn ? '全下 (' + human.chips + ')' : '全下';
   }
   function humanAction(type) {
     if (!humanResolver || currentTurnIdx !== 0) return;
     var human = players[0];
-    var toCall = currentBet - human.bet;
+    var toCall = currentBet - human.betRound;
     var res = null;
     if (type === 'fold') res = { type: 'fold' };
     else if (type === 'check' && toCall === 0) res = { type: 'check' };
@@ -441,7 +456,7 @@
       if (!(human.chips > toCall && human.chips >= toCall + lastRaiseSize)) return;
       res = { type: 'raise', to: currentBet + lastRaiseSize };
     }
-    else if (type === 'allin') res = { type: 'allin', to: human.bet + human.chips };
+    else if (type === 'allin') res = { type: 'allin', to: human.betRound + human.chips };
     if (res) {
       var r = humanResolver;
       humanResolver = null;
@@ -462,22 +477,22 @@
     } else if (res.type === 'check') {
       log(p.name + ' 过牌');
     } else if (res.type === 'call') {
-      var need = currentBet - p.bet;
-      var amt = Math.min(need, p.chips);
-      p.chips -= amt; p.bet += amt; pot += amt;
+      var need = currentBet - p.betRound;
+      var amt = Math.max(0, Math.min(need, p.chips));
+      p.chips -= amt; p.bet += amt; p.betRound += amt; pot += amt;
       if (p.chips === 0) p.allIn = true;
       log(p.name + ' 跟注 ' + amt);
     } else if (res.type === 'raise' || res.type === 'allin') {
-      var amt = Math.min(res.to - p.bet, p.chips);
-      p.chips -= amt; p.bet += amt; pot += amt;
+      var amt = Math.max(0, Math.min(res.to - p.betRound, p.chips));
+      p.chips -= amt; p.bet += amt; p.betRound += amt; pot += amt;
       if (p.chips === 0) p.allIn = true;
-      if (p.bet > currentBet) {
-        lastRaiseSize = p.bet - currentBet;
-        currentBet = p.bet;
+      if (p.betRound > currentBet) {
+        lastRaiseSize = p.betRound - currentBet;
+        currentBet = p.betRound;
         reopened = true;
-        log(p.name + (res.type === 'allin' ? ' 全下 ' : ' 加注到 ') + p.bet);
+        log(p.name + (res.type === 'allin' ? ' 全下 ' : ' 加注到 ') + p.betRound);
       } else {
-        log(p.name + ' 全下 ' + p.bet + '（未达加注额，按跟注）');
+        log(p.name + ' 全下 ' + p.betRound + '（未达加注额，按跟注）');
       }
     }
     persist();
@@ -487,9 +502,14 @@
   async function doAction(idx) {
     var p = players[idx];
     if (p.isHuman) return waitHumanAction();
-    var delay = players[0].folded ? 350 : 650 + Math.random() * 550;
+    var res = aiDecide(p);
+    // 先决策后等待：大动作想得更久，更像人
+    var delay;
+    if (players[0].folded) delay = 300 + Math.random() * 200;
+    else if (res.type === 'raise' || res.type === 'allin') delay = 700 + Math.random() * 800;
+    else delay = 400 + Math.random() * 900;
     await sleep(delay);
-    return aiDecide(p);
+    return res;
   }
   function remainingPlayers() {
     return players.filter(function (p) { return !p.folded; }).length;
@@ -505,6 +525,8 @@
     currentBet = (streetName === 'preflop') ? BB : 0;
     lastRaiseSize = BB;
     raisesThisRound = 0;
+    // 每街开始时清零本街下注（盲注已在翻牌前计入，不清零）
+    if (streetName !== 'preflop') players.forEach(function (p) { p.betRound = 0; });
     var firstIdx = (streetName === 'preflop') ? (buttonIdx + 3) % 6 : firstActiveAfter(buttonIdx);
     if (firstIdx === -1) return;
     var order = [];
@@ -548,6 +570,7 @@
       var amt = 0;
       players.forEach(function (p) { amt += Math.min(p.bet, lvl) - Math.min(p.bet, prev); });
       var eligible = players.filter(function (p) { return !p.folded && p.bet >= lvl; });
+      if (eligible.length === 0) eligible = players.filter(function (p) { return !p.folded; }); // 防御：绝不让底池无人领取
       if (amt > 0) pots.push({ amount: amt, eligible: eligible });
       prev = lvl;
     });
@@ -567,6 +590,7 @@
       lines.push(winner.name + ' 赢得底池 +' + total + '（其余玩家弃牌）');
       if (winner.isHuman) playerWon = true;
     } else {
+      var totals = {}; // 玩家序号 -> {amount, hand}
       pots.forEach(function (po) {
         var best = null, winners = [];
         po.eligible.forEach(function (p) {
@@ -574,15 +598,24 @@
           if (!best || cmpScore(s, best) > 0) { best = s; winners = [p]; }
           else if (cmpScore(s, best) === 0) winners.push(p);
         });
+        if (winners.length === 0) return; // 防御：无合格者则跳过
         var share = Math.floor(po.amount / winners.length);
         var rem = po.amount - share * winners.length;
         winners.forEach(function (w, i) {
           var amt = share + (i === 0 ? rem : 0);
           w.chips += amt;
+          var idx = players.indexOf(w);
+          if (!totals[idx]) totals[idx] = { amount: 0, hand: '' };
+          totals[idx].amount += amt;
+          totals[idx].hand = handName(best);
           if (w.isHuman) playerWon = true;
         });
-        var names = winners.map(function (w) { return w.name; }).join('、');
-        lines.push(names + ' 以「' + handName(best) + '」赢得 +' + po.amount + (winners.length > 1 ? '（平分）' : ''));
+      });
+      // 同一赢家跨主池/边池只显示一行合计
+      Object.keys(totals).forEach(function (idx) {
+        var t = totals[idx];
+        var p = players[idx];
+        lines.push(p.name + (t.hand ? ' 以「' + t.hand + '」' : '') + ' 赢得 +' + t.amount);
       });
     }
     if (playerWon) save.wins++;
@@ -597,7 +630,7 @@
   function postBlind(idx, amount) {
     var p = players[idx];
     var amt = Math.min(amount, p.chips);
-    p.chips -= amt; p.bet += amt; pot += amt;
+    p.chips -= amt; p.bet += amt; p.betRound += amt; pot += amt;
     if (p.chips === 0) p.allIn = true;
     log(p.name + ' 下盲注 ' + amt);
   }
@@ -615,7 +648,7 @@
     community = [];
     pot = 0; currentBet = 0; lastRaiseSize = BB; raisesThisRound = 0;
     showdownReveal = false;
-    players.forEach(function (p) { p.hole = []; p.bet = 0; p.folded = false; p.allIn = false; });
+    players.forEach(function (p) { p.hole = []; p.bet = 0; p.betRound = 0; p.folded = false; p.allIn = false; p.mood = p.isHuman ? 0 : (Math.random() - 0.5) * 0.12; });
     buttonIdx = (buttonIdx + 1) % 6;
     var sbIdx = (buttonIdx + 1) % 6, bbIdx = (buttonIdx + 2) % 6;
     postBlind(sbIdx, SB); postBlind(bbIdx, BB);
@@ -682,10 +715,10 @@
   }
   function initPlayers() {
     var persList = Object.keys(PERSONALITIES);
-    players = [{ name: '你', pers: null, chips: save.chips, hole: [], bet: 0, folded: false, allIn: false, isHuman: true }];
+    players = [{ name: '你', pers: null, chips: save.chips, hole: [], bet: 0, betRound: 0, folded: false, allIn: false, isHuman: true, mood: 0 }];
     for (var i = 0; i < 5; i++) {
       var pers = persList[Math.floor(Math.random() * persList.length)];
-      players.push({ name: AI_NAMES[i], pers: pers, chips: START_CHIPS, hole: [], bet: 0, folded: false, allIn: false, isHuman: false });
+      players.push({ name: AI_NAMES[i], pers: pers, chips: START_CHIPS, hole: [], bet: 0, betRound: 0, folded: false, allIn: false, isHuman: false, mood: 0 });
     }
   }
   function init() {
