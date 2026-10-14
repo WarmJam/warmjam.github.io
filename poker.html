@@ -312,7 +312,7 @@
       // 慢玩：超强牌偶尔过牌设陷阱
       if (strength > 0.85 && Math.random() < 0.25) return { type: 'check' };
       if (strength > 0.62) {
-        if (strength > 0.90 && Math.random() < 0.12 && ai.chips > 0) return { type: 'allin', to: ai.betRound + ai.chips };
+        if (strength > 0.86 && Math.random() < 0.20 && ai.chips > 0) return { type: 'allin', to: ai.betRound + ai.chips };
         if (ai.chips >= lastRaiseSize) return { type: 'raise', to: raiseTarget(ai, pickRaiseMult(strength)) };
         if (strength > 0.8 && ai.chips > 0) return { type: 'allin', to: ai.betRound + ai.chips };
         return { type: 'check' };
@@ -335,7 +335,7 @@
     // 慢玩：超强牌偶尔只跟注设陷阱
     if (strength > 0.85 && Math.random() < 0.20) return { type: 'call' };
     if (strength > adj.raiseThresh && raisesThisRound < 3) {
-      if (strength > 0.90 && Math.random() < 0.12) return { type: 'allin', to: ai.betRound + ai.chips };
+      if (strength > 0.86 && Math.random() < 0.20) return { type: 'allin', to: ai.betRound + ai.chips };
       if (ai.chips > toCall + lastRaiseSize) return { type: 'raise', to: raiseTarget(ai, pickRaiseMult(strength)) };
       if (strength > 0.8) return { type: 'allin', to: ai.betRound + ai.chips };
     }
