@@ -131,11 +131,11 @@
     giftsUrl: 'lottery-gifts.json', // Jam 的赠送文件（公开，只读）
     games: [
       {
-        id: 'lucky7', name: '7好运', price: 20, tag: '最高 3500 元',
+        id: 'lucky7', name: '7好运', price: 20, tag: '最高 350000 元',
         rule: '中奖号码随机 1–45（不含 7）。下面 7 个格子，数字与中奖号码相同，得该格下方金额；数字是 7，得该格下方金额的 7 倍。刮完自动结算。',
-        prizePool: [10, 20, 50, 100, 200, 500],
-        prizeWeights: [50, 30, 12, 5, 2, 1],
-        sevenProb: 0.015,            // 每格刮出 7 的概率
+        prizePool: [10, 20, 50, 100, 1000, 50000],
+        prizeWeights: [4000, 2000, 500, 3400, 99, 1], // 总权重 10000
+        sevenProb: 0.001,            // 每格刮出 7 的概率 0.1%
         cells: 7, maxNum: 45
       }
     ]
