@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🎰 彩票游戏 - WarmJam</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%); color: #fff; min-height: 100vh; padding: 16px; }
+  a { color: #e94560; text-decoration: none; }
+  .top { max-width: 720px; margin: 0 auto; }
+  .back { display: inline-block; margin-bottom: 14px; font-size: 14px; }
+  h1 { font-size: 24px; margin-bottom: 4px; }
+  .sub { color: #aaa; font-size: 13px; margin-bottom: 16px; }
+  .wallet { background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.15); border-radius: 14px; padding: 14px 16px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+  .wallet .bal { font-size: 20px; font-weight: 700; }
+  .wallet .bal span { color: #ffd700; }
+  .wallet .dev { font-size: 12px; color: #aaa; word-break: break-all; }
+  .wallet .plus { margin-left: auto; width: 36px; height: 36px; border-radius: 50%; border: none; background: #e94560; color: #fff; font-size: 22px; cursor: pointer; line-height: 1; }
+  .wallet .plus:active { transform: scale(.92); }
+  .tabs { display: flex; gap: 10px; margin-bottom: 16px; }
+  .tab { flex: 1; padding: 14px; border-radius: 14px; border: 1px solid rgba(255,255,255,.15); background: rgba(255,255,255,.08); color: #fff; font-size: 17px; font-weight: 700; cursor: pointer; text-align: center; }
+  .tab.active { background: #e94560; border-color: #e94560; }
+  .tab small { display: block; font-size: 11px; font-weight: 400; color: #ddd; margin-top: 2px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+  .card { background: #fff; color: #222; border-radius: 14px; padding: 14px; cursor: pointer; position: relative; overflow: hidden; }
+  .card .price { position: absolute; top: 10px; right: 12px; background: #e94560; color: #fff; font-size: 12px; padding: 2px 8px; border-radius: 20px; }
+  .card h3 { font-size: 18px; margin-bottom: 4px; }
+  .card p { font-size: 12px; color: #666; }
+  .card .tag { display: inline-block; margin-top: 8px; font-size: 11px; background: #fff3cd; color: #856404; padding: 2px 8px; border-radius: 20px; }
+  .placeholder { text-align: center; color: #aaa; padding: 48px 0; font-size: 15px; }
+  .panel { background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.15); border-radius: 14px; padding: 16px; margin-bottom: 16px; }
+  .panel h2 { font-size: 18px; margin-bottom: 10px; }
+  .panel .rule { font-size: 13px; color: #ccc; line-height: 1.7; }
+  .btn { display: inline-block; background: #e94560; color: #fff; border: none; padding: 10px 20px; border-radius: 10px; font-size: 15px; cursor: pointer; }
+  .btn.ghost { background: rgba(255,255,255,.12); }
+  .btn:disabled { opacity: .5; cursor: not-allowed; }
+  .scratch-wrap { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin: 14px 0; }
+  .scratch-cell { background: #fff; color: #222; border-radius: 10px; padding: 10px; text-align: center; }
+  .scratch-cell .lbl { font-size: 11px; color: #888; margin-bottom: 4px; }
+  .scratch-cell canvas { width: 100%; height: 64px; border-radius: 8px; background: #c0c0c0; touch-action: none; display: block; }
+  .scratch-cell .prize { font-size: 15px; font-weight: 700; margin-top: 4px; min-height: 20px; }
+  .scratch-cell .prize.hit { color: #e94560; }
+  .win-num { font-size: 26px; font-weight: 800; color: #ffd700; text-align: center; margin: 10px 0; }
+  .result { text-align: center; font-size: 18px; font-weight: 700; margin: 12px 0; min-height: 26px; }
+  .result.win { color: #ffd700; }
+  .result.lose { color: #aaa; }
+  .tx { list-style: none; }
+  .tx li { display: flex; justify-content: space-between; font-size: 13px; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,.08); gap: 10px; }
+  .tx .amt.plus { color: #4ade80; }
+  .tx .amt.minus { color: #f87171; }
+  .modal { position: fixed; inset: 0; background: rgba(0,0,0,.7); display: none; align-items: center; justify-content: center; z-index: 99; padding: 20px; }
+  .modal.open { display: flex; }
+  .modal .box { background: #222; border-radius: 16px; padding: 22px; max-width: 380px; width: 100%; text-align: center; }
+  .modal .box h3 { margin-bottom: 10px; }
+  .modal .box p { font-size: 14px; color: #ccc; line-height: 1.7; }
+  .modal .box .code { background: #111; padding: 8px; border-radius: 8px; font-family: monospace; word-break: break-all; margin: 10px 0; font-size: 13px; }
+  .status { font-size: 12px; color: #888; text-align: center; margin-top: 12px; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+  input[type=file] { display: none; }
+</style>
+</head>
+<body>
+<div class="top">
+  <a class="back" href="index.html">← 回主页</a>
+  <h1>🎰 彩票游戏</h1>
+  <p class="sub">娱乐小游戏，仅供家人朋友消遣</p>
+
+  <div class="wallet">
+    <div>
+      <div class="bal">余额 <span id="balance">—</span> 元</div>
+      <div class="dev">设备码：<span id="deviceCode">—</span></div>
+    </div>
+    <button class="plus" id="plusBtn" title="充值">+</button>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" id="tabScratch">🎫 刮刮乐<small>即刮即开</small></button>
+    <button class="tab" id="tabLotto">🎱 彩票<small>开发中</small></button>
+  </div>
+
+  <div id="scratchView">
+    <div class="grid" id="scratchList"></div>
+  </div>
+
+  <div id="lottoView" style="display:none">
+    <div class="placeholder">🎱 彩票玩法开发中，敬请期待</div>
+  </div>
+
+  <div class="panel" id="playPanel" style="display:none">
+    <h2 id="playTitle"></h2>
+    <p class="rule" id="playRule"></p>
+    <div class="win-num" id="winNum"></div>
+    <div class="scratch-wrap" id="scratchWrap"></div>
+    <div class="result" id="playResult"></div>
+    <div class="row">
+      <button class="btn" id="revealAllBtn">全部刮开</button>
+      <button class="btn ghost" id="backBtn">返回列表</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>📋 最近明细</h2>
+    <ul class="tx" id="txList"><li>暂无记录</li></ul>
+    <div class="row">
+      <button class="btn ghost" id="exportBtn">导出存档</button>
+      <label class="btn ghost" for="importFile">导入存档</label>
+      <input type="file" id="importFile" accept=".json,application/json">
+    </div>
+  </div>
+
+  <p class="status" id="syncStatus">存档：本设备 · 赠送：GitHub</p>
+</div>
+
+<div class="modal" id="plusModal">
+  <div class="box">
+    <h3>💰 充值</h3>
+    <p>请联系 Jam 修改余额。<br>把下面的设备码截图发给 Jam 即可。</p>
+    <div class="code" id="modalDeviceCode"></div>
+    <button class="btn" id="closeModalBtn">知道了</button>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ---------- 配置（改奖金、价格只改这里） ---------- */
+  var CFG = {
+    startCash: 500,                 // 新玩家初始资金（元）
+    giftsUrl: 'lottery-gifts.json', // Jam 的赠送文件（公开，只读）
+    games: [
+      {
+        id: 'lucky7', name: '7好运', price: 20, tag: '最高 3500 元',
+        rule: '中奖号码随机 1–45（不含 7）。下面 7 个格子，数字与中奖号码相同，得该格下方金额；数字是 7，得该格下方金额的 7 倍。刮完自动结算。',
+        prizePool: [10, 20, 50, 100, 200, 500],
+        prizeWeights: [50, 30, 12, 5, 2, 1],
+        sevenProb: 0.015,            // 每格刮出 7 的概率
+        cells: 7, maxNum: 45
+      }
+    ]
+  };
+
+  /* ---------- 设备码 ---------- */
+  function genDevice() {
+    var s = 'abcdefghijklmnopqrstuvwxyz0123456789';
+    var out = '';
+    for (var i = 0; i < 10; i++) out += s[Math.floor(Math.random() * s.length)];
+    return out;
+  }
+  var device = localStorage.getItem('lotteryDevice');
+  if (!device) { device = genDevice(); localStorage.setItem('lotteryDevice', device); }
+  document.getElementById('deviceCode').textContent = device;
+  document.getElementById('modalDeviceCode').textContent = device;
+
+  /* ---------- 存档：localStorage 为主，IndexedDB 为备 ---------- */
+  var save = null;
+  function defaultSave() { return { cash: CFG.startCash, tx: [], claimed: [] }; }
+
+  function idbSave(obj) {
+    return new Promise(function (res) {
+      try {
+        var req = indexedDB.open('lotteryDB', 1);
+        req.onupgradeneeded = function () { req.result.createObjectStore('save'); };
+        req.onsuccess = function () {
+          var tx = req.result.transaction('save', 'readwrite');
+          tx.objectStore('save').put(obj, 'main');
+          tx.oncomplete = function () { res(true); };
+          tx.onerror = function () { res(false); };
+        };
+        req.onerror = function () { res(false); };
+      } catch (e) { res(false); }
+    });
+  }
+  function idbLoad() {
+    return new Promise(function (res) {
+      try {
+        var req = indexedDB.open('lotteryDB', 1);
+        req.onupgradeneeded = function () { req.result.createObjectStore('save'); };
+        req.onsuccess = function () {
+          var tx = req.result.transaction('save', 'readonly');
+          var get = tx.objectStore('save').get('main');
+          get.onsuccess = function () { res(get.result || null); };
+          get.onerror = function () { res(null); };
+        };
+        req.onerror = function () { res(null); };
+      } catch (e) { res(null); }
+    });
+  }
+
+  function persist() {
+    try { localStorage.setItem('lotterySave', JSON.stringify(save)); } catch (e) {}
+    idbSave(save);
+  }
+  function addTx(type, desc, amount) {
+    save.tx.unshift({ id: 'tx' + Date.now() + Math.floor(Math.random() * 1000), t: new Date().toISOString(), type: type, desc: desc, amount: amount });
+    save.tx = save.tx.slice(0, 10);
+  }
+  async function loadSave() {
+    var s = null;
+    try { s = JSON.parse(localStorage.getItem('lotterySave') || 'null'); } catch (e) {}
+    if (!s || typeof s.cash !== 'number') {
+      s = await idbLoad(); // localStorage 丢了，试试 IndexedDB 备份
+      if (s && typeof s.cash === 'number') {
+        try { localStorage.setItem('lotterySave', JSON.stringify(s)); } catch (e) {}
+      }
+    }
+    if (!s || typeof s.cash !== 'number') s = defaultSave();
+    if (!Array.isArray(s.claimed)) s.claimed = [];
+    if (!Array.isArray(s.tx)) s.tx = [];
+    return s;
+  }
+
+  /* ---------- Jam 赠送：读公开 JSON，按设备码领取 ---------- */
+  async function fetchGifts() {
+    try {
+      var r = await fetch(CFG.giftsUrl + '?t=' + Date.now(), { cache: 'no-store' });
+      if (!r.ok) return;
+      var j = await r.json();
+      var changed = false;
+      (j.gifts || []).forEach(function (g) {
+        if (g.device !== device) return;
+        if (save.claimed.indexOf(g.id) !== -1) return;
+        if (save.tx.some(function (x) { return x.id === 'gift-' + g.id; })) { save.claimed.push(g.id); return; }
+        save.cash += g.amount;
+        save.tx.unshift({ id: 'gift-' + g.id, t: new Date().toISOString(), type: 'gift', desc: 'Jam 赠送' + (g.note ? '（' + g.note + '）' : ''), amount: g.amount });
+        save.tx = save.tx.slice(0, 10);
+        save.claimed.push(g.id);
+        changed = true;
+      });
+      if (changed) { persist(); renderWallet(); renderTx(); }
+    } catch (e) {}
+  }
+
+  /* ---------- 渲染 ---------- */
+  function renderWallet() {
+    document.getElementById('balance').textContent = save.cash;
+  }
+  function renderTx() {
+    var ul = document.getElementById('txList');
+    if (!save.tx.length) { ul.innerHTML = '<li>暂无记录</li>'; return; }
+    ul.innerHTML = save.tx.map(function (x) {
+      var cls = x.amount >= 0 ? 'plus' : 'minus';
+      var sign = x.amount >= 0 ? '+' : '';
+      var d = new Date(x.t);
+      var when = (d.getMonth() + 1) + '/' + d.getDate() + ' ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+      return '<li><span>' + x.desc + ' · ' + when + '</span><span class="amt ' + cls + '">' + sign + x.amount + '</span></li>';
+    }).join('');
+  }
+  function renderList() {
+    var el = document.getElementById('scratchList');
+    el.innerHTML = CFG.games.map(function (g) {
+      return '<div class="card" data-game="' + g.id + '"><span class="price">' + g.price + ' 元/张</span><h3>🎫 ' + g.name + '</h3><p>' + g.rule.slice(0, 40) + '…</p><span class="tag">' + g.tag + '</span></div>';
+    }).join('');
+    el.querySelectorAll('.card').forEach(function (c) {
+      c.addEventListener('click', function () {
+        var g = CFG.games.filter(function (x) { return x.id === c.getAttribute('data-game'); })[0];
+        buyCard(g);
+      });
+    });
+  }
+
+  /* ---------- 买卡 / 开奖 ---------- */
+  var current = null; // { game, winNum, cells: [{num, prize, revealed}], settled }
+  function pickPrize(game) {
+    var total = 0;
+    game.prizeWeights.forEach(function (w) { total += w; });
+    var r = Math.random() * total;
+    for (var i = 0; i < game.prizeWeights.length; i++) {
+      r -= game.prizeWeights[i];
+      if (r <= 0) return game.prizePool[i];
+    }
+    return game.prizePool[0];
+  }
+  function buyCard(game) {
+    if (save.cash < game.price) { alert('余额不足，点右上角 + 联系 Jam 充值'); return; }
+    save.cash -= game.price;
+    addTx('buy', '购买「' + game.name + '」', -game.price);
+    persist(); renderWallet(); renderTx();
+
+    var winNum = Math.floor(Math.random() * game.maxNum) + 1;
+    if (winNum === 7) winNum = 8; // 中奖号码不含 7
+    var cells = [];
+    for (var i = 0; i < game.cells; i++) {
+      var num = Math.random() < game.sevenProb ? 7 : (Math.floor(Math.random() * game.maxNum) + 1);
+      cells.push({ num: num, prize: pickPrize(game), revealed: false });
+    }
+    current = { game: game, winNum: winNum, cells: cells, settled: false };
+
+    document.getElementById('scratchView').style.display = 'none';
+    var panel = document.getElementById('playPanel');
+    panel.style.display = 'block';
+    document.getElementById('playTitle').textContent = '🎫 ' + game.name + '（' + game.price + ' 元）';
+    document.getElementById('playRule').textContent = game.rule;
+    document.getElementById('winNum').textContent = '中奖号码：' + winNum;
+    document.getElementById('playResult').textContent = '';
+    document.getElementById('playResult').className = 'result';
+    document.getElementById('revealAllBtn').disabled = false;
+    renderCells();
+    panel.scrollIntoView({ behavior: 'smooth' });
+  }
+  function renderCells() {
+    var wrap = document.getElementById('scratchWrap');
+    wrap.innerHTML = '';
+    current.cells.forEach(function (cell, idx) {
+      var div = document.createElement('div');
+      div.className = 'scratch-cell';
+      div.innerHTML = '<div class="lbl">刮开查看</div><canvas width="220" height="64"></canvas><div class="prize"></div>';
+      var canvas = div.querySelector('canvas');
+      var prizeEl = div.querySelector('.prize');
+      if (cell.revealed) {
+        var won = cell.num === current.winNum || cell.num === 7;
+        prizeEl.textContent = (cell.num === 7 ? '7 × ' : '') + '数字 ' + cell.num + ' · ' + cell.prize + ' 元';
+        prizeEl.className = 'prize' + (won ? ' hit' : '');
+        var ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+      } else {
+        paintCover(canvas);
+        attachScratch(canvas, idx, div);
+      }
+      wrap.appendChild(div);
+    });
+  }
+  function paintCover(canvas) {
+    var ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#c0c0c0';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#999';
+    ctx.font = 'bold 16px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('刮 一 刮', canvas.width / 2, canvas.height / 2 + 6);
+  }
+  function attachScratch(canvas, idx, div) {
+    var ctx = canvas.getContext('2d');
+    var scratching = false;
+    var scratched = 0;
+    function pos(e) {
+      var rect = canvas.getBoundingClientRect();
+      var p = e.touches ? e.touches[0] : e;
+      return { x: (p.clientX - rect.left) * canvas.width / rect.width, y: (p.clientY - rect.top) * canvas.height / rect.height };
+    }
+    function scratch(e) {
+      if (!scratching) return;
+      e.preventDefault();
+      var p = pos(e);
+      ctx.globalCompositeOperation = 'destination-out';
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 18, 0, Math.PI * 2);
+      ctx.fill();
+      scratched++;
+      if (scratched > 40) reveal(idx, div);
+    }
+    canvas.addEventListener('pointerdown', function (e) { scratching = true; scratch(e); });
+    canvas.addEventListener('pointermove', scratch);
+    window.addEventListener('pointerup', function () { scratching = false; });
+  }
+  function reveal(idx, div) {
+    var cell = current.cells[idx];
+    if (cell.revealed) return;
+    cell.revealed = true;
+    var canvas = div.querySelector('canvas');
+    var prizeEl = div.querySelector('.prize');
+    var ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    var won = cell.num === current.winNum || cell.num === 7;
+    prizeEl.textContent = (cell.num === 7 ? '7 × ' : '') + '数字 ' + cell.num + ' · ' + cell.prize + ' 元';
+    prizeEl.className = 'prize' + (won ? ' hit' : '');
+    if (current.cells.every(function (c) { return c.revealed; })) settle();
+  }
+  function settle() {
+    if (!current || current.settled) return;
+    current.settled = true;
+    var total = 0;
+    current.cells.forEach(function (c) {
+      if (c.num === current.winNum) total += c.prize;
+      else if (c.num === 7) total += c.prize * 7;
+    });
+    var el = document.getElementById('playResult');
+    if (total > 0) {
+      save.cash += total;
+      addTx('win', '「' + current.game.name + '」中奖', total);
+      el.textContent = '🎉 中奖 ' + total + ' 元！';
+      el.className = 'result win';
+    } else {
+      el.textContent = '很遗憾，这次没中';
+      el.className = 'result lose';
+    }
+    persist(); renderWallet(); renderTx();
+  }
+
+  /* ---------- 事件 ---------- */
+  document.getElementById('revealAllBtn').addEventListener('click', function () {
+    document.querySelectorAll('.scratch-cell').forEach(function (div, i) { reveal(i, div); });
+  });
+  document.getElementById('backBtn').addEventListener('click', function () {
+    document.getElementById('playPanel').style.display = 'none';
+    document.getElementById('scratchView').style.display = 'block';
+    current = null;
+  });
+  document.getElementById('tabScratch').addEventListener('click', function () {
+    this.classList.add('active');
+    document.getElementById('tabLotto').classList.remove('active');
+    document.getElementById('scratchView').style.display = 'block';
+    document.getElementById('lottoView').style.display = 'none';
+  });
+  document.getElementById('tabLotto').addEventListener('click', function () {
+    this.classList.add('active');
+    document.getElementById('tabScratch').classList.remove('active');
+    document.getElementById('scratchView').style.display = 'none';
+    document.getElementById('lottoView').style.display = 'block';
+  });
+  document.getElementById('plusBtn').addEventListener('click', function () {
+    document.getElementById('plusModal').classList.add('open');
+  });
+  document.getElementById('closeModalBtn').addEventListener('click', function () {
+    document.getElementById('plusModal').classList.remove('open');
+  });
+  document.getElementById('plusModal').addEventListener('click', function (e) {
+    if (e.target === this) this.classList.remove('open');
+  });
+  document.getElementById('exportBtn').addEventListener('click', function () {
+    var blob = new Blob([JSON.stringify({ device: device, save: save, exportedAt: new Date().toISOString() }, null, 2)], { type: 'application/json' });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'lottery-save-' + device + '.json';
+    a.click();
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
+  });
+  document.getElementById('importFile').addEventListener('change', function () {
+    var file = this.files[0];
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function () {
+      try {
+        var j = JSON.parse(reader.result);
+        if (!j.save || typeof j.save.cash !== 'number') throw new Error('bad');
+        save = j.save;
+        if (!Array.isArray(save.claimed)) save.claimed = [];
+        if (!Array.isArray(save.tx)) save.tx = [];
+        persist(); renderWallet(); renderTx();
+        alert('存档已恢复');
+      } catch (e) { alert('存档文件不对，恢复失败'); }
+    };
+    reader.readAsText(file);
+    this.value = '';
+  });
+
+  /* ---------- 启动 ---------- */
+  loadSave().then(function (s) {
+    save = s;
+    renderList();
+    renderWallet();
+    renderTx();
+    fetchGifts();
+  });
+})();
+</script>
+</body>
+</html>
