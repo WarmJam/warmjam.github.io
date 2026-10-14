@@ -35,13 +35,32 @@
   .btn { display: inline-block; background: #e94560; color: #fff; border: none; padding: 10px 20px; border-radius: 10px; font-size: 15px; cursor: pointer; }
   .btn.ghost { background: rgba(255,255,255,.12); }
   .btn:disabled { opacity: .5; cursor: not-allowed; }
-  .scratch-wrap { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin: 14px 0; }
-  .scratch-cell { background: #fff; color: #222; border-radius: 10px; padding: 10px; text-align: center; }
-  .scratch-cell .lbl { font-size: 11px; color: #888; margin-bottom: 4px; }
-  .scratch-cell canvas { width: 100%; height: 64px; border-radius: 8px; background: #c0c0c0; touch-action: none; display: block; }
-  .scratch-cell .prize { font-size: 15px; font-weight: 700; margin-top: 4px; min-height: 20px; }
-  .scratch-cell .prize.hit { color: #e94560; }
-  .win-num { font-size: 26px; font-weight: 800; color: #ffd700; text-align: center; margin: 10px 0; }
+  .play-screen { margin-bottom: 16px; }
+  .play-head { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+  .play-head h2 { font-size: 20px; }
+  .play-screen .rule { font-size: 13px; color: #ccc; line-height: 1.7; margin-bottom: 14px; }
+  .ticket { background: #fff; color: #222; border-radius: 20px; padding: 20px 16px 18px; box-shadow: 0 10px 30px rgba(0,0,0,.35); text-align: center; }
+  .win-badge { display: flex; align-items: center; justify-content: center; gap: 12px; margin-bottom: 16px; }
+  .win-badge span { font-size: 14px; color: #666; letter-spacing: 2px; }
+  .win-badge b { width: 52px; height: 52px; border-radius: 50%; background: linear-gradient(135deg, #ffd700, #ff9d00); color: #b00; font-size: 26px; display: flex; align-items: center; justify-content: center; box-shadow: 0 3px 10px rgba(255,157,0,.4); }
+  .seven-grid { display: grid; grid-template-columns: repeat(4, 1fr); grid-template-rows: repeat(4, 1fr); gap: 10px; max-width: 440px; margin: 0 auto 16px; }
+  .seven-grid .scratch-cell:nth-child(1) { grid-area: 1 / 1; }
+  .seven-grid .scratch-cell:nth-child(2) { grid-area: 1 / 2; }
+  .seven-grid .scratch-cell:nth-child(3) { grid-area: 1 / 3; }
+  .seven-grid .scratch-cell:nth-child(4) { grid-area: 1 / 4; }
+  .seven-grid .scratch-cell:nth-child(5) { grid-area: 2 / 3; }
+  .seven-grid .scratch-cell:nth-child(6) { grid-area: 3 / 2; }
+  .seven-grid .scratch-cell:nth-child(7) { grid-area: 4 / 1; }
+  .scratch-cell { position: relative; aspect-ratio: 1; background: #f5f0e6; border-radius: 14px; overflow: hidden; display: flex; align-items: center; justify-content: center; border: 2px solid #e8dfc8; }
+  .scratch-cell.win { background: linear-gradient(135deg, #fff3b0, #ffd700); border-color: #e6b800; }
+  .cell-content { text-align: center; }
+  .cell-num { font-size: 26px; font-weight: 800; color: #333; line-height: 1.2; }
+  .scratch-cell.win .cell-num { color: #c00; }
+  .cell-amt { font-size: 12px; color: #888; margin-top: 2px; }
+  .scratch-cell.win .cell-amt { color: #a00; font-weight: 700; }
+  .scratch-cell canvas { position: absolute; inset: 0; width: 100%; height: 100%; border-radius: inherit; touch-action: none; display: block; }
+  .ticket .result.win { color: #c00; }
+  .ticket .result.lose { color: #999; }
   .result { text-align: center; font-size: 18px; font-weight: 700; margin: 12px 0; min-height: 26px; }
   .result.win { color: #ffd700; }
   .result.lose { color: #aaa; }
@@ -87,19 +106,21 @@
     <div class="placeholder">🎱 彩票玩法开发中，敬请期待</div>
   </div>
 
-  <div class="panel" id="playPanel" style="display:none">
-    <h2 id="playTitle"></h2>
+  <div class="play-screen" id="playPanel" style="display:none">
+    <div class="play-head">
+      <button class="btn ghost" id="backBtn">← 返回</button>
+      <h2 id="playTitle"></h2>
+    </div>
     <p class="rule" id="playRule"></p>
-    <div class="win-num" id="winNum"></div>
-    <div class="scratch-wrap" id="scratchWrap"></div>
-    <div class="result" id="playResult"></div>
-    <div class="row">
+    <div class="ticket">
+      <div class="win-badge"><span>中奖号码</span><b id="winNum"></b></div>
+      <div class="seven-grid" id="scratchWrap"></div>
+      <div class="result" id="playResult"></div>
       <button class="btn" id="revealAllBtn">全部刮开</button>
-      <button class="btn ghost" id="backBtn">返回列表</button>
     </div>
   </div>
 
-  <div class="panel">
+  <div class="panel" id="txPanel">
     <h2>📋 最近明细</h2>
     <ul class="tx" id="txList"><li>暂无记录</li></ul>
     <div class="row">
@@ -304,12 +325,16 @@
     }
     current = { game: game, winNum: winNum, cells: cells, settled: false };
 
+    // 进入刮奖新界面：隐藏列表/页签/明细，只留钱包和刮奖屏
     document.getElementById('scratchView').style.display = 'none';
+    document.getElementById('lottoView').style.display = 'none';
+    document.querySelector('.tabs').style.display = 'none';
+    document.getElementById('txPanel').style.display = 'none';
     var panel = document.getElementById('playPanel');
     panel.style.display = 'block';
     document.getElementById('playTitle').textContent = '🎫 ' + game.name + '（' + game.price + ' 元）';
     document.getElementById('playRule').textContent = game.rule;
-    document.getElementById('winNum').textContent = '中奖号码：' + winNum;
+    document.getElementById('winNum').textContent = winNum;
     document.getElementById('playResult').textContent = '';
     document.getElementById('playResult').className = 'result';
     document.getElementById('revealAllBtn').disabled = false;
@@ -322,13 +347,12 @@
     current.cells.forEach(function (cell, idx) {
       var div = document.createElement('div');
       div.className = 'scratch-cell';
-      div.innerHTML = '<div class="lbl">刮开查看</div><canvas width="220" height="64"></canvas><div class="prize"></div>';
+      var amtText = (cell.num === 7 ? '7 × ' : '') + cell.prize + ' 元';
+      div.innerHTML = '<div class="cell-content"><div class="cell-num">' + cell.num + '</div><div class="cell-amt">' + amtText + '</div></div><canvas width="200" height="200"></canvas>';
       var canvas = div.querySelector('canvas');
-      var prizeEl = div.querySelector('.prize');
       if (cell.revealed) {
         var won = cell.num === current.winNum || cell.num === 7;
-        prizeEl.textContent = (cell.num === 7 ? '7 × ' : '') + '数字 ' + cell.num + ' · ' + cell.prize + ' 元';
-        prizeEl.className = 'prize' + (won ? ' hit' : '');
+        if (won) div.classList.add('win');
         var ctx = canvas.getContext('2d');
         ctx.clearRect(0, 0, canvas.width, canvas.height);
       } else {
@@ -362,7 +386,7 @@
       var p = pos(e);
       ctx.globalCompositeOperation = 'destination-out';
       ctx.beginPath();
-      ctx.arc(p.x, p.y, 18, 0, Math.PI * 2);
+      ctx.arc(p.x, p.y, 34, 0, Math.PI * 2);
       ctx.fill();
       scratched++;
       if (scratched > 40) reveal(idx, div);
@@ -376,12 +400,10 @@
     if (cell.revealed) return;
     cell.revealed = true;
     var canvas = div.querySelector('canvas');
-    var prizeEl = div.querySelector('.prize');
     var ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     var won = cell.num === current.winNum || cell.num === 7;
-    prizeEl.textContent = (cell.num === 7 ? '7 × ' : '') + '数字 ' + cell.num + ' · ' + cell.prize + ' 元';
-    prizeEl.className = 'prize' + (won ? ' hit' : '');
+    if (won) div.classList.add('win');
     if (current.cells.every(function (c) { return c.revealed; })) settle();
   }
   function settle() {
@@ -412,6 +434,8 @@
   document.getElementById('backBtn').addEventListener('click', function () {
     document.getElementById('playPanel').style.display = 'none';
     document.getElementById('scratchView').style.display = 'block';
+    document.querySelector('.tabs').style.display = 'flex';
+    document.getElementById('txPanel').style.display = 'block';
     current = null;
   });
   document.getElementById('tabScratch').addEventListener('click', function () {
