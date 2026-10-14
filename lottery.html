@@ -133,9 +133,18 @@
       {
         id: 'lucky7', name: '7好运', price: 20, tag: '最高 350000 元',
         rule: '中奖号码随机 1–45（不含 7）。下面 7 个格子，数字与中奖号码相同，得该格下方金额；数字是 7，得该格下方金额的 7 倍。刮完自动结算。',
-        prizePool: [10, 20, 50, 100, 1000, 50000],
-        prizeWeights: [4000, 2000, 500, 3400, 99, 1], // 总权重 10000
-        sevenProb: 0.001,            // 每格刮出 7 的概率 0.1%
+        // 按每张卡抽总奖金（不含 7 倍）：中≥10 40%、中≥20 20%、中≥50 5%，期望约 12 元
+        cardTable: [
+          { v: 0, w: 600000 },
+          { v: 10, w: 220000 },
+          { v: 20, w: 170000 },
+          { v: 50, w: 8895 },
+          { v: 100, w: 900 },
+          { v: 1000, w: 180 },
+          { v: 50000, w: 25 }
+        ],
+        sevenProb: 0.10,             // 中奖卡 10% 以 7 形式出现（付 7 倍）
+        displayPool: [10, 20, 50, 100, 1000, 50000], // 输家格子展示金额，平均分布
         cells: 7, maxNum: 45
       }
     ]
@@ -262,15 +271,15 @@
 
   /* ---------- 买卡 / 开奖 ---------- */
   var current = null; // { game, winNum, cells: [{num, prize, revealed}], settled }
-  function pickPrize(game) {
+  function drawCardTotal(game) {
     var total = 0;
-    game.prizeWeights.forEach(function (w) { total += w; });
+    game.cardTable.forEach(function (x) { total += x.w; });
     var r = Math.random() * total;
-    for (var i = 0; i < game.prizeWeights.length; i++) {
-      r -= game.prizeWeights[i];
-      if (r <= 0) return game.prizePool[i];
+    for (var i = 0; i < game.cardTable.length; i++) {
+      r -= game.cardTable[i].w;
+      if (r <= 0) return game.cardTable[i].v;
     }
-    return game.prizePool[0];
+    return 0;
   }
   function buyCard(game) {
     if (save.cash < game.price) { alert('余额不足，点右上角 + 联系 Jam 充值'); return; }
@@ -280,10 +289,18 @@
 
     var winNum = Math.floor(Math.random() * game.maxNum) + 1;
     if (winNum === 7) winNum = 8; // 中奖号码不含 7
+    var T = drawCardTotal(game); // 先抽整张卡总奖金（不含 7 倍）
+    var isSeven = T > 0 && Math.random() < game.sevenProb; // 中奖卡 10% 以 7 形式出现
+    var winnerIdx = T > 0 ? Math.floor(Math.random() * game.cells) : -1;
     var cells = [];
     for (var i = 0; i < game.cells; i++) {
-      var num = Math.random() < game.sevenProb ? 7 : (Math.floor(Math.random() * game.maxNum) + 1);
-      cells.push({ num: num, prize: pickPrize(game), revealed: false });
+      if (i === winnerIdx) {
+        cells.push({ num: isSeven ? 7 : winNum, prize: T, revealed: false });
+      } else {
+        var num; // 输家：数字 ≠ 中奖号且 ≠7，金额平均分布展示
+        do { num = Math.floor(Math.random() * game.maxNum) + 1; } while (num === winNum || num === 7);
+        cells.push({ num: num, prize: game.displayPool[Math.floor(Math.random() * game.displayPool.length)], revealed: false });
+      }
     }
     current = { game: game, winNum: winNum, cells: cells, settled: false };
 
