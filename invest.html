@@ -67,7 +67,7 @@ details.card .help b{color:#111}
   <div class="acct">
     <div class="cell"><div class="lbl">总资产（元）</div><div class="val" id="totalAssets">—</div><div class="sub">现金 + 持仓市值</div></div>
     <div class="cell"><div class="lbl">可用现金（元）</div><div class="val" id="cash">—</div><div class="sub">可用于买入的钱</div></div>
-    <div class="cell"><div class="lbl">持仓市值（元）</div><div class="val" id="holdVal">—</div><div class="sub" id="holdCount"></div></div>
+    <div class="cell"><div class="lbl">持仓权益（元）</div><div class="val" id="holdVal">—</div><div class="sub" id="holdCount"></div></div>
     <div class="cell"><div class="lbl">累计盈亏（元）</div><div class="val" id="totalPnl">—</div><div class="sub">已卖出的 + 还在持有的</div></div>
   </div>
   <div class="topBtns">
@@ -288,7 +288,7 @@ function render(){
   $('totalAssets').textContent = fmt(T.total);
   $('cash').textContent = fmt(S.cash);
   $('holdVal').textContent = fmt(T.hv);
-  $('holdCount').textContent = S.holdings.length + ' 只持仓';
+  $('holdCount').textContent = '本金 + 浮动盈亏 · ' + S.holdings.length + ' 只持仓';
   const el = $('totalPnl'); el.textContent = (T.pnl>=0?'+':'') + fmt(T.pnl); el.className = 'val ' + (T.pnl>0?'up':T.pnl<0?'down':'flat');
   $('reliefBtn').style.display = T.total<1000 ? '' : 'none';
   renderList(); renderHoldings(); renderTrades();
@@ -319,7 +319,7 @@ function renderHoldings(){
     const a=BY_ID[h.id]; const p=curPrice(h.id); const pnl=holdingPnl(h);
     const pnlPct = h.margin>0 ? pnl/h.margin*100 : 0;
     const liq = h.entry*(1-1/h.lev);
-    const near = h.lev>1 && p!==null && p < liq*1.15;
+    const near = h.lev>1 && p!==null && p < (h.entry+liq)/2; // 跌到成本与爆仓价的中点（亏掉一半本金）才警告，避免 10 倍刚买就误报
     if(near) warn += '⚠️ '+a.name+'（'+h.lev+'倍）接近爆仓线 '+fmtP(liq)+'，现价 '+fmtP(p)+'。 ';
     const prTxt = p===null ? '—' : fmtP(p);
     return '<div class="row hold"><div class="nm"><b>'+a.name+'</b><small>'+a.code+' · '+h.qty.toFixed(4)+' 份 · '+h.lev+'倍杠杆 · 成本 '+fmtP(h.entry)+' · 爆仓价 '+(h.lev>1?fmtP(liq):'无')+'</small></div>'
