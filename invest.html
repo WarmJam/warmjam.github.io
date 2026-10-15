@@ -260,7 +260,7 @@ function normalizeSave(){
 }
 async function claimGifts(){
   try{
-    const r = await fetch('invest-gifts.json?v='+Date.now());
+    const r = await fetchTimeout('invest-gifts.json?v='+Date.now(), 10000);
     if(!r.ok) return;
     const j = await r.json();
     const gifts = Array.isArray(j.gifts) ? j.gifts : [];
@@ -306,6 +306,12 @@ const pctCls = c=> c>0?'up':c<0?'down':'flat';
 const pctTxt = c=> c===null||c===undefined ? '—' : (c>0?'+':'')+c.toFixed(2)+'%';
 
 // ---------- 行情 ----------
+// 带超时的 fetch：网络一卡就放弃，不让 refresh() 永远等下去（卡死的根因）
+function fetchTimeout(url, ms){
+  const ctrl = new AbortController();
+  const t = setTimeout(()=>ctrl.abort(), ms||10000);
+  return fetch(url, {signal: ctrl.signal}).finally(()=>clearTimeout(t));
+}
 function loadScript(src, timeoutMs){
   return new Promise(res=>{
     const s=document.createElement('script'); let done=false;
@@ -335,9 +341,9 @@ async function loadTencent(){
 }
 async function loadCrypto(){
   const ids = CRYPTO_DEFS.map(d=>d[0]).concat(['tether']);
-  const spP = fetch('https://api.coingecko.com/api/v3/simple/price?ids='+ids.join(',')+'&vs_currencies=usd,cny').then(r=>{ if(!r.ok) throw new Error('coingecko '+r.status); return r.json(); });
+  const spP = fetchTimeout('https://api.coingecko.com/api/v3/simple/price?ids='+ids.join(',')+'&vs_currencies=usd,cny', 10000).then(r=>{ if(!r.ok) throw new Error('coingecko '+r.status); return r.json(); });
   // markets 只取 24h 涨跌幅，失败也不影响价格
-  const mkP = fetch('https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids='+ids.join(',')+'&per_page=25').then(r=> r.ok ? r.json() : []).catch(()=>[]);
+  const mkP = fetchTimeout('https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids='+ids.join(',')+'&per_page=25', 10000).then(r=> r.ok ? r.json() : []).catch(()=>[]);
   const sp = await spP;
   const mk = await mkP;
   const chg = {};
@@ -345,10 +351,12 @@ async function loadCrypto(){
   return {sp:sp, chg:chg};
 }
 async function loadFX(){
-  const r = await fetch('https://open.er-api.com/v6/latest/USD'); if(!r.ok) throw new Error('fx '+r.status);
+  const r = await fetchTimeout('https://open.er-api.com/v6/latest/USD', 10000); if(!r.ok) throw new Error('fx '+r.status);
   return await r.json();
 }
+let refreshing = false; // 防重入：上一次刷新没跑完，新的刷新直接跳过，避免多次刷新叠加卡死
 async function refresh(manual){
+  if(refreshing) return; refreshing = true;
   const btn = document.querySelector('button[onclick="refresh(true)"]'); if(btn) btn.disabled=true;
   try{
     await claimGifts();
@@ -391,7 +399,7 @@ async function refresh(manual){
   }catch(e){
     render(); // 失败时仍显示存档数据（现金/持仓/存款），不留一页“—”
     $('assetList').innerHTML = '<div style="color:#c92a2a;padding:12px 0;text-align:center">行情加载失败（'+String(e.message||e)+'），点“刷新行情”重试。</div>';
-  }finally{ if(btn) btn.disabled=false; }
+  }finally{ refreshing = false; if(btn) btn.disabled=false; }
 }
 
 // ---------- 渲染 ----------
