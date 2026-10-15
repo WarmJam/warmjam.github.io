@@ -148,7 +148,7 @@ details.card .help b{color:#111}
   <div style="font-size:14px">买入金额（元，本金）</div>
   <div class="amtRow"><input id="tpAmt" type="number" min="100" step="100" value="1000"><button onclick="setAmt(1000)">1千</button><button onclick="setAmt(10000)">1万</button><button onclick="setAmtMax()">全部</button></div>
   <div class="meta" id="tpCalc"></div>
-  <div style="margin-top:12px;display:flex;gap:8px"><button class="primary" style="flex:1" onclick="doBuy()">确认买入</button><button style="flex:1" onclick="hidePanel()">取消</button></div>
+  <div style="margin-top:12px;display:flex;gap:8px"><button class="primary" id="buyConfirm" style="flex:1" onclick="doBuy()">确认买入</button><button style="flex:1" onclick="hidePanel()">取消</button></div>
 </div>
 
 <div class="card" id="holdCard">
@@ -353,7 +353,12 @@ async function refresh(manual){
   try{
     await claimGifts();
     checkDeposits();
-    const [tx, cg, fxj] = await Promise.all([loadTencent(), loadCrypto(), loadFX()]);
+    // 单个接口挂了不拖垮全部：各取各的，失败的源保持旧价
+    const results = await Promise.allSettled([loadTencent(), loadCrypto(), loadFX()]);
+    const tx = results[0].status==='fulfilled' ? results[0].value : {};
+    const cg = results[1].status==='fulfilled' ? results[1].value : {sp:{}, chg:{}};
+    const fxj = results[2].status==='fulfilled' ? results[2].value : {rates:{}};
+    if(results.every(r=>r.status==='rejected')) throw new Error('行情接口全部失败');
     const rates = fxj.rates||{};
     const cnyPer = {}; // 每 1 单位外币 = 多少人民币
     if(rates.CNY>0){
@@ -384,6 +389,7 @@ async function refresh(manual){
     checkLiquidation();
     render();
   }catch(e){
+    render(); // 失败时仍显示存档数据（现金/持仓/存款），不留一页“—”
     $('assetList').innerHTML = '<div style="color:#c92a2a;padding:12px 0;text-align:center">行情加载失败（'+String(e.message||e)+'），点“刷新行情”重试。</div>';
   }finally{ if(btn) btn.disabled=false; }
 }
@@ -465,7 +471,7 @@ const BANK_RATES = { // 年利率 %，按 [1天,7天,30天,90天]；模拟利率
   ewb:{CNY:[0.25,0.70,1.10,1.60], USD:[1.30,2.30,3.80,4.80], HKD:[0.50,1.20,2.00,3.00]},
   cmb:{CNY:[0.50,1.00,1.40,2.00], USD:[1.00,2.00,3.50,4.50], HKD:[0.50,1.20,2.00,3.00]},
 };
-let curBank='hsbc', curDep=null;
+let curBank='hsbc', curDep=null, confirmEarlyId=null;
 function setBank(b){ curBank=b; curDep=null; renderBank(); }
 function renderBank(){
   const banks = [['hsbc','汇丰'],['ewb','华美'],['cmb','招商银行']];
@@ -490,7 +496,10 @@ function renderBank(){
       const interest = d.amount * d.rate/100 * d.term/365;
       const left = d.maturity - Date.now();
       const leftTxt = left<=0 ? '已到期' : '还有 '+Math.floor(left/86400000)+' 天 '+Math.floor(left%86400000/3600000)+' 小时';
-      return '<div class="row"><div class="nm"><b>'+BANK_NAMES[d.bank]+' · '+(BANK_CURS.find(c=>c[0]===d.cur)||[])[1]+' '+d.term+'天定期</b><small>本金 '+fmt(d.amount)+' · 年利率 '+d.rate.toFixed(2)+'% · 预期利息 '+fmt(interest)+' · 到期 '+new Date(d.maturity).toLocaleString('zh-CN')+'</small></div><div class="pr"><div class="p">'+leftTxt+'</div><div class="c"><button onclick="earlyWithdraw(\''+d.id+'\')">提前取出（无利息）</button></div></div></div>';
+      const btns = confirmEarlyId===d.id
+        ? '<button class="danger" onclick="confirmEarlyWithdraw(\''+d.id+'\')">确认取出（无利息）</button> <button onclick="cancelEarlyWithdraw()">取消</button>'
+        : '<button onclick="earlyWithdraw(\''+d.id+'\')">提前取出（无利息）</button>';
+      return '<div class="row"><div class="nm"><b>'+BANK_NAMES[d.bank]+' · '+(BANK_CURS.find(c=>c[0]===d.cur)||[])[1]+' '+d.term+'天定期</b><small>本金 '+fmt(d.amount)+' · 年利率 '+d.rate.toFixed(2)+'% · 预期利息 '+fmt(interest)+' · 到期 '+new Date(d.maturity).toLocaleString('zh-CN')+'</small></div><div class="pr"><div class="p">'+leftTxt+'</div><div class="c">'+btns+'</div></div></div>';
     }).join('');
   }
   $('assetList').innerHTML = html;
@@ -505,7 +514,7 @@ function showDepForm(){
     + '<div style="margin-top:8px">存入金额（元）</div>'
     + '<div class="amtRow"><input id="depAmt" type="number" min="100" step="100" value="10000" oninput="updateDepCalc()"><button onclick="setDepAmt(10000)">1万</button><button onclick="setDepAmt(100000)">10万</button><button onclick="setDepAmtMax()">全部</button></div>'
     + '<div class="meta" id="depCalc"></div>'
-    + '<div style="margin-top:10px;display:flex;gap:8px"><button class="primary" style="flex:1" onclick="doDep()">确认存入</button><button style="flex:1" onclick="closeDepForm()">取消</button></div>';
+    + '<div style="margin-top:10px;display:flex;gap:8px"><button class="primary" id="depConfirm" style="flex:1" onclick="doDep()">确认存入</button><button style="flex:1" onclick="closeDepForm()">取消</button></div>';
   updateDepCalc();
   f.scrollIntoView({behavior:'smooth', block:'nearest'});
 }
@@ -514,7 +523,9 @@ function updateDepCalc(){
   const amt = parseFloat($('depAmt').value)||0;
   const interest = amt * curDep.rate/100 * curDep.term/365;
   const mat = new Date(Date.now() + curDep.term*86400000);
-  $('depCalc').innerHTML = '本金 '+fmt(amt)+' · 到期利息约 '+fmt(interest)+' · 到期到账 '+fmt(amt+interest)+' · 到期时间 '+mat.toLocaleString('zh-CN');
+  const over = amt > S.cash;
+  $('depCalc').innerHTML = '本金 '+fmt(amt)+' · 到期利息约 '+fmt(interest)+' · 到期到账 '+fmt(amt+interest)+' · 到期时间 '+mat.toLocaleString('zh-CN') + (over ? '<br><span style="color:#e03131">⚠️ 现金不足，可用 '+fmt(S.cash)+'</span>' : '');
+  const dc = $('depConfirm'); if(dc) dc.disabled = over || amt<100;
 }
 function setDepAmt(v){ $('depAmt').value = Math.min(v, Math.max(100, Math.floor(S.cash))); updateDepCalc(); }
 function setDepAmtMax(){ $('depAmt').value = Math.max(100, Math.floor(S.cash)); updateDepCalc(); }
@@ -522,8 +533,8 @@ function closeDepForm(){ curDep=null; const f=$('depForm'); if(f) f.style.displa
 function doDep(){
   if(!curDep) return;
   const amt = Math.floor(parseFloat($('depAmt').value)||0);
-  if(amt<100){ alert('最少存入 100 元'); return; }
-  if(amt>S.cash){ alert('现金不足，可用 '+fmt(S.cash)); return; }
+  if(amt<100){ updateDepCalc(); return; }
+  if(amt>S.cash){ updateDepCalc(); return; } // 现金不足：页内已显示红字提示，按钮也被禁用
   const dep = {id:'dep-'+Date.now()+'-'+Math.floor(Math.random()*1000), bank:curDep.bank, cur:curDep.cur, term:curDep.term, amount:amt, rate:curDep.rate, start:Date.now(), maturity:Date.now()+curDep.term*86400000};
   S.cash -= amt; S.deposits.push(dep);
   S.trades.unshift({time:Date.now(), id:'', name:BANK_NAMES[curDep.bank]+'·'+(BANK_CURS.find(c=>c[0]===curDep.cur)||[])[1]+curDep.term+'天定期', act:'定期存入', amount:amt, pnl:0});
@@ -544,9 +555,11 @@ function checkDeposits(){
   });
   if(matured.length){ S.trades = S.trades.slice(0,100); save(); const b=$('liqBanner'); b.style.display='block'; b.textContent='🏦 定期到期：'+matured.join('、')+'，本息已到账。'; }
 }
-function earlyWithdraw(id){
+function earlyWithdraw(id){ confirmEarlyId = id; renderBank(); }
+function cancelEarlyWithdraw(){ confirmEarlyId = null; renderBank(); }
+function confirmEarlyWithdraw(id){
   const d = S.deposits.find(x=>x.id===id); if(!d) return;
-  if(!confirm('提前取出没有利息，确定取出本金 '+fmt(d.amount)+' 吗？')) return;
+  confirmEarlyId = null;
   S.cash += d.amount;
   S.trades.unshift({time:Date.now(), id:'', name:BANK_NAMES[d.bank]+'·'+(BANK_CURS.find(c=>c[0]===d.cur)||[])[1]+d.term+'天定期', act:'提前取出', amount:d.amount, pnl:0});
   S.trades = S.trades.slice(0,100);
@@ -575,7 +588,9 @@ function updateCalc(){
   const amt = parseFloat($('tpAmt').value)||0;
   const qty = amt*curLev/pr.price;
   const liq = pr.price*(1-1/curLev);
-  $('tpCalc').innerHTML = '本金 '+fmt(amt)+'　·　实际买入 '+qty.toFixed(4)+' 份（市值 '+fmt(amt*curLev)+'）　·　'+(curLev>1 ? '跌到 '+fmtP(liq)+' 会爆仓，本金归零' : '不带杠杆，不会爆仓');
+  const over = amt > S.cash;
+  $('tpCalc').innerHTML = '本金 '+fmt(amt)+'　·　实际买入 '+qty.toFixed(4)+' 份（市值 '+fmt(amt*curLev)+'）　·　'+(curLev>1 ? '跌到 '+fmtP(liq)+' 会爆仓，本金归零' : '不带杠杆，不会爆仓') + (over ? '<br><span style="color:#e03131">⚠️ 现金不足，可用 '+fmt(S.cash)+'</span>' : '');
+  const bc = $('buyConfirm'); if(bc) bc.disabled = over || amt<100;
 }
 $('tpAmt').addEventListener('input', updateCalc);
 function hidePanel(){ $('tradePanel').style.display='none'; curAsset=null; }
@@ -583,8 +598,8 @@ function doBuy(){
   if(!curAsset) return;
   const pr=P[curAsset.id]; if(!pr){ alert('行情还没加载好，稍等再试'); return; }
   const amt = Math.floor(parseFloat($('tpAmt').value)||0);
-  if(amt<100){ alert('最少买入 100 元'); return; }
-  if(amt>S.cash){ alert('现金不足，可用 '+fmt(S.cash)); return; }
+  if(amt<100){ updateCalc(); return; }
+  if(amt>S.cash){ updateCalc(); return; } // 现金不足：页内已显示红字提示，按钮也被禁用
   const qty = amt*curLev/pr.price;
   const key = curAsset.id+'@'+curLev;
   const h = S.holdings.find(x=>x.key===key);
