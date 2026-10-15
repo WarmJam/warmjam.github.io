@@ -113,8 +113,8 @@ details.card .help b{color:#111}
 <b>黄金：</b>GLD / 黄金 ETF 跟着金价走，大家常说的“避险”就是指它。<br>
 <b>虚拟货币：</b>去中心化的数字资产，24 小时交易，没有涨跌停，波动比股票大得多。这里按 USDT 计价（USDT ≈ 1 美元的稳定币）。<br>
 <b>汇率：</b>不同国家货币的兑换价格。买“美元”就是持有美元，美元对人民币升值你就赚；日元按 100 日元为 1 手。<br>
-<b>杠杆：</b>借钱放大。2 倍杠杆 = 你出 1 万，借 1 万，买 2 万的货。涨 1% 你赚 2%，跌 1% 你亏 2%。<br>
-<b>爆仓：</b>杠杆仓位亏到本金快没了，系统强制卖出，本金归零。杠杆越高，爆仓越容易。1 倍 = 不带杠杆，不会爆仓。<br>
+<b>杠杆：</b>借钱放大。2 倍杠杆 = 你出 1 万，借 1 万，买 2 万的货。涨 1% 你赚 2%，跌 1% 你亏 2%。虚拟货币最高 100 倍：100 倍时涨 1% 本金翻倍，跌 1% 本金归零；50 倍时跌 2% 本金归零。倍数越高，爆仓越快，别一上来就拉满。<br>
+<b>爆仓：</b>杠杆仓位亏到本金快没了，系统强制卖出，本金归零。杠杆越高，爆仓越容易。1 倍 = 不带杠杆，不会爆仓。虚拟货币 100 倍杠杆跌 1% 就爆仓，50 倍跌 2% 就爆仓。<br>
 <b>红涨绿跌：</b>中国股市的习惯，红色是涨，绿色是跌（和美国反过来）。<br>
 <b>银行：</b>闲钱可以存定期，三家银行（汇丰、华美、招商）× 三种货币（人民币、美元、港币）× 四种期限（1/7/30/90 天），期限越长利率越高。存入后锁定，到期自动本息到账；提前取出没有利息。利率为模拟利率。<br>
 <b>赠送：</b>点“📱 设备码”把设备码发给 Jam，他在仓库里给你赠送金额，刷新页面自动到账。<br>
@@ -204,7 +204,7 @@ const ASSETS = [];
 const isSH = c=> c[0]==='6'||c[0]==='5'||c[0]==='9'; // 上交所：6开头股票、5开头基金ETF、9开头B股；其余深交所
 STOCK_DEFS.forEach(d=>{const t = d[2]==='us' ? 'us'+d[0] : d[2]==='hk' ? 'hk'+d[0] : (isSH(d[0]) ? 'sh'+d[0] : 'sz'+d[0]); ASSETS.push({id:d[0], name:d[1], code:d[0], type:'stock', mkt:d[2], t:t, lev:2});});
 ETF_DEFS.forEach(d=>{const t = d[2]==='us' ? 'us'+d[0] : (isSH(d[0]) ? 'sh'+d[0] : 'sz'+d[0]); ASSETS.push({id:d[0], name:d[1], code:d[0], type:d[3], mkt:d[2], t:t, lev:2});});
-CRYPTO_DEFS.forEach(d=>ASSETS.push({id:d[1], name:d[2], code:d[1]+'/USDT', type:'crypto', mkt:'crypto', cg:d[0], lev:10}));
+CRYPTO_DEFS.forEach(d=>ASSETS.push({id:d[1], name:d[2], code:d[1]+'/USDT', type:'crypto', mkt:'crypto', cg:d[0], lev:100}));
 FX_DEFS.forEach(d=>ASSETS.push({id:'FX_'+d[0], name:d[1], code:d[0], type:'fx', mkt:'fx', fx:d[0], unit:d[2], lev:1}));
 const BY_ID = {}; ASSETS.forEach(a=>BY_ID[a.id]=a);
 
@@ -573,7 +573,7 @@ function openBuy(id){
   curAsset=a; curLev=1; $('tradePanel').style.display='block';
   $('tpTitle').textContent = '买入 · '+a.name+'（'+a.code+'）';
   $('tpInfo').textContent = '现价 '+fmtP(pr.price)+'　杠杆上限 '+a.lev+'倍　'+(a.lev>1 ? '1倍 = 不带杠杆，不会爆仓' : '外汇不带杠杆');
-  const levs = a.lev>=10 ? [1,2,5,10] : a.lev>=2 ? [1,2] : [1];
+  const levs = a.lev>=100 ? [1,2,5,10,50,100] : a.lev>=10 ? [1,2,5,10] : a.lev>=2 ? [1,2] : [1];
   $('tpLevs').innerHTML = levs.map(l=>'<button data-lev="'+l+'" class="'+(l===1?'active':'')+'" onclick="setLev('+l+')">'+l+'倍</button>').join('');
   $('tpAmt').value = Math.min(1000, Math.max(100, Math.floor(S.cash)));
   updateCalc();
@@ -589,7 +589,7 @@ function updateCalc(){
   const qty = amt*curLev/pr.price;
   const liq = pr.price*(1-1/curLev);
   const over = amt > S.cash;
-  $('tpCalc').innerHTML = '本金 '+fmt(amt)+'　·　实际买入 '+qty.toFixed(4)+' 份（市值 '+fmt(amt*curLev)+'）　·　'+(curLev>1 ? '跌到 '+fmtP(liq)+' 会爆仓，本金归零' : '不带杠杆，不会爆仓') + (over ? '<br><span style="color:#e03131">⚠️ 现金不足，可用 '+fmt(S.cash)+'</span>' : '');
+  $('tpCalc').innerHTML = '本金 '+fmt(amt)+'　·　实际买入 '+qty.toFixed(4)+' 份（市值 '+fmt(amt*curLev)+'）　·　'+(curLev>1 ? '跌到 '+fmtP(liq)+' 会爆仓，本金归零' : '不带杠杆，不会爆仓') + (curLev>=50 ? '<br><span style="color:#e03131">⚠️ 高杠杆警告：'+curLev+'倍杠杆跌 '+(100/curLev).toFixed(1)+'% 本金归零，虚拟货币几分钟内就能跌这么多</span>' : '') + (over ? '<br><span style="color:#e03131">⚠️ 现金不足，可用 '+fmt(S.cash)+'</span>' : '');
   const bc = $('buyConfirm'); if(bc) bc.disabled = over || amt<100;
 }
 $('tpAmt').addEventListener('input', updateCalc);
