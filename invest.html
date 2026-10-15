@@ -58,24 +58,52 @@ details.card .help b{color:#111}
 .trades .t:last-child{border-bottom:none}
 .trades .time{color:#999;font-size:12px}
 .topBtns{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.userRow{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+.userRow input{padding:7px 10px;border:1px solid #ddd;border-radius:8px;font-size:15px;flex:1;min-width:120px}
+.bankTable{width:100%;border-collapse:collapse;font-size:13px;margin:8px 0}
+.bankTable th,.bankTable td{border:1px solid #eee;padding:8px 6px;text-align:center}
+.bankTable th{background:#f7f7f7}
+.bankTable td button{padding:4px 8px;font-size:12px}
+.depForm{display:none;border:2px solid #1677ff;border-radius:10px;padding:12px;margin-top:10px}
+.depForm input{padding:8px 10px;border:1px solid #ddd;border-radius:8px;font-size:15px;flex:1;width:100%}
+.modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:50;align-items:center;justify-content:center}
+.modal .box{background:#fff;border-radius:12px;padding:18px;max-width:420px;width:92%;font-size:14px;line-height:1.8}
 </style>
 </head>
 <body>
 <header><a class="back" href="index.html">← 主页</a><h1>📈 模拟投资</h1><span id="updTime" style="font-size:12px;color:#888"></span></header>
 <main>
 <div class="card">
+  <div class="userRow">
+    <span style="font-size:14px">👤 玩家：</span>
+    <input id="userName" placeholder="取个名字，比如 Jam" maxlength="20">
+    <button onclick="saveUserName()">保存名字</button>
+    <button onclick="showDevice()">📱 设备码</button>
+    <button onclick="exportSave()">⬇️ 导出存档</button>
+    <button onclick="$('importFile').click()">⬆️ 导入存档</button>
+    <input type="file" id="importFile" accept=".json" style="display:none" onchange="importSave(this)">
+  </div>
   <div class="acct">
-    <div class="cell"><div class="lbl">总资产（元）</div><div class="val" id="totalAssets">—</div><div class="sub">现金 + 持仓市值</div></div>
+    <div class="cell"><div class="lbl">总资产（元）</div><div class="val" id="totalAssets">—</div><div class="sub">现金 + 持仓权益 + 银行存款</div></div>
     <div class="cell"><div class="lbl">可用现金（元）</div><div class="val" id="cash">—</div><div class="sub">可用于买入的钱</div></div>
     <div class="cell"><div class="lbl">持仓权益（元）</div><div class="val" id="holdVal">—</div><div class="sub" id="holdCount"></div></div>
     <div class="cell"><div class="lbl">累计盈亏（元）</div><div class="val" id="totalPnl">—</div><div class="sub">已卖出的 + 还在持有的</div></div>
+    <div class="cell" style="grid-column:span 2"><div class="lbl">银行存款（元）</div><div class="val" id="depVal">—</div><div class="sub">定期存款本金，锁定中</div></div>
   </div>
   <div class="topBtns">
     <button class="primary" onclick="refresh(true)">🔄 刷新行情</button>
     <button onclick="resetAll()">♻️ 重新开始</button>
-    <button id="reliefBtn" style="display:none" onclick="claimRelief()">🆘 领取救济金 100,000 元</button>
+    <button id="reliefBtn" style="display:none" onclick="claimRelief()">🆘 领取救济金 1,000,000 元</button>
   </div>
   <div class="banner" id="liqBanner"></div>
+</div>
+<div class="modal" id="deviceModal" onclick="if(event.target===this) this.style.display='none'">
+  <div class="box">
+    <div style="font-weight:700;font-size:16px">📱 你的设备码</div>
+    <div id="deviceCode" style="font-size:22px;font-weight:700;letter-spacing:2px;margin:8px 0"></div>
+    <div>把这个设备码发给 Jam，他就能在仓库里给你赠送金额。刷新页面后自动到账。</div>
+    <div style="margin-top:12px;text-align:right"><button class="primary" onclick="$('deviceModal').style.display='none'">知道了</button></div>
+  </div>
 </div>
 
 <details class="card"><summary>📖 新手必读（点开看，不懂投资也能玩）</summary>
@@ -88,7 +116,9 @@ details.card .help b{color:#111}
 <b>杠杆：</b>借钱放大。2 倍杠杆 = 你出 1 万，借 1 万，买 2 万的货。涨 1% 你赚 2%，跌 1% 你亏 2%。<br>
 <b>爆仓：</b>杠杆仓位亏到本金快没了，系统强制卖出，本金归零。杠杆越高，爆仓越容易。1 倍 = 不带杠杆，不会爆仓。<br>
 <b>红涨绿跌：</b>中国股市的习惯，红色是涨，绿色是跌（和美国反过来）。<br>
-<b>模拟盘：</b>全是虚拟资金，不花真钱，亏了也不心疼，适合练手。起始资金 100,000 元。
+<b>银行：</b>闲钱可以存定期，三家银行（汇丰、华美、招商）× 三种货币（人民币、美元、港币）× 四种期限（1/7/30/90 天），期限越长利率越高。存入后锁定，到期自动本息到账；提前取出没有利息。利率为模拟利率。<br>
+<b>赠送：</b>点“📱 设备码”把设备码发给 Jam，他在仓库里给你赠送金额，刷新页面自动到账。<br>
+<b>模拟盘：</b>全是虚拟资金，不花真钱，亏了也不心疼，适合练手。起始资金 1,000,000 元，长期有效。
 </div></details>
 
 <div class="card">
@@ -97,6 +127,7 @@ details.card .help b{color:#111}
     <button data-tab="crypto" onclick="setTab('crypto')">🪙 虚拟货币（20）</button>
     <button data-tab="etf" onclick="setTab('etf')">🧺 ETF · 黄金（8）</button>
     <button data-tab="fx" onclick="setTab('fx')">💱 汇率（11）</button>
+    <button data-tab="bank" onclick="setTab('bank')">🏦 银行</button>
     <button data-tab="hold" onclick="setTab('hold')">💼 我的持仓</button>
   </div>
   <div class="subtabs" id="stockSub" style="display:flex">
@@ -179,10 +210,93 @@ const BY_ID = {}; ASSETS.forEach(a=>BY_ID[a.id]=a);
 
 // ---------- 状态 ----------
 const KEY='investSave';
-let S = null;
-try{ S = JSON.parse(localStorage.getItem(KEY)||'null'); }catch(e){ S=null; }
-if(!S || typeof S.cash!=='number' || !Array.isArray(S.holdings)) S = {cash:100000, holdings:[], trades:[], realized:0};
-function save(){ try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){} }
+let S = {cash:1000000, holdings:[], trades:[], realized:0, username:'', device:'', claimed:[], deposits:[]};
+function genDevice(){ const ch='abcdefghijklmnopqrstuvwxyz0123456789'; let s=''; for(let i=0;i<10;i++) s+=ch[Math.floor(Math.random()*ch.length)]; return s; }
+function idbPut(obj){
+  return new Promise(res=>{
+    try{
+      const req = indexedDB.open('investDB', 1);
+      req.onupgradeneeded = ()=>{ try{ req.result.createObjectStore('kv'); }catch(e){} };
+      req.onsuccess = ()=>{
+        try{
+          const db = req.result, tx = db.transaction('kv','readwrite');
+          tx.objectStore('kv').put(JSON.stringify(obj), 'investSave');
+          tx.oncomplete = ()=>{ try{db.close();}catch(e){} res(); };
+          tx.onerror = ()=>res();
+        }catch(e){ res(); }
+      };
+      req.onerror = ()=>res();
+    }catch(e){ res(); }
+  });
+}
+function idbGet(){
+  return new Promise(res=>{
+    try{
+      const req = indexedDB.open('investDB', 1);
+      req.onupgradeneeded = ()=>{ try{ req.result.createObjectStore('kv'); }catch(e){} };
+      req.onsuccess = ()=>{
+        try{
+          const db = req.result, tx = db.transaction('kv','readonly');
+          const g = tx.objectStore('kv').get('investSave');
+          g.onsuccess = ()=>{ try{db.close();}catch(e){} try{ res(g.result ? JSON.parse(g.result) : null); }catch(e){ res(null); } };
+          g.onerror = ()=>res(null);
+        }catch(e){ res(null); }
+      };
+      req.onerror = ()=>res(null);
+    }catch(e){ res(null); }
+  });
+}
+function save(){ try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){} idbPut(S); }
+function normalizeSave(){
+  if(!S || typeof S!=='object') S = {};
+  if(typeof S.cash!=='number') S.cash = 1000000;
+  if(!Array.isArray(S.holdings)) S.holdings=[];
+  if(!Array.isArray(S.trades)) S.trades=[];
+  if(typeof S.realized!=='number') S.realized=0;
+  if(typeof S.username!=='string') S.username='';
+  if(typeof S.device!=='string' || !S.device) S.device=genDevice();
+  if(!Array.isArray(S.claimed)) S.claimed=[];
+  if(!Array.isArray(S.deposits)) S.deposits=[];
+}
+async function claimGifts(){
+  try{
+    const r = await fetch('invest-gifts.json?v='+Date.now());
+    if(!r.ok) return;
+    const j = await r.json();
+    const gifts = Array.isArray(j.gifts) ? j.gifts : [];
+    let got=0, gotAmt=0;
+    gifts.forEach(g=>{
+      if(g.device===S.device && g.amount>0 && !S.claimed.includes(g.id)){
+        S.cash += g.amount; S.claimed.push(g.id); got++; gotAmt += g.amount;
+        S.trades.unshift({time:Date.now(), id:'', name:'Jam赠送', act:'赠送', amount:g.amount, pnl:0});
+      }
+    });
+    if(got>0){
+      S.trades = S.trades.slice(0,100); save();
+      const b=$('liqBanner'); b.style.display='block'; b.textContent='🎁 收到 Jam 赠送 '+fmt(gotAmt)+'（'+got+' 笔），已到账。';
+    }
+  }catch(e){}
+}
+function saveUserName(){ S.username = ($('userName').value||'').trim().slice(0,20); save(); alert('名字已保存：'+(S.username||'（未设置）')); }
+function showDevice(){ $('deviceCode').textContent = S.device; $('deviceModal').style.display='flex'; }
+function exportSave(){
+  const blob = new Blob([JSON.stringify(S,null,2)], {type:'application/json'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'invest-save.json'; a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href), 5000);
+}
+function importSave(inp){
+  const f = inp.files && inp.files[0]; if(!f) return;
+  const rd = new FileReader();
+  rd.onload = ()=>{
+    try{
+      const j = JSON.parse(rd.result);
+      if(typeof j.cash!=='number' || !Array.isArray(j.holdings)) throw new Error('bad');
+      S = j; normalizeSave(); $('userName').value = S.username;
+      save(); render(); alert('存档已导入');
+    }catch(e){ alert('导入失败：文件格式不对'); }
+  };
+  rd.readAsText(f); inp.value='';
+}
 let P = {}; // id -> {price(CNY), chg}
 let curTab='stock', curMkt='all', curAsset=null, curLev=1;
 const $ = id=>document.getElementById(id);
@@ -237,6 +351,8 @@ async function loadFX(){
 async function refresh(manual){
   const btn = document.querySelector('button[onclick="refresh(true)"]'); if(btn) btn.disabled=true;
   try{
+    await claimGifts();
+    checkDeposits();
     const [tx, cg, fxj] = await Promise.all([loadTencent(), loadCrypto(), loadFX()]);
     const rates = fxj.rates||{};
     const cnyPer = {}; // 每 1 单位外币 = 多少人民币
@@ -273,7 +389,7 @@ async function refresh(manual){
 }
 
 // ---------- 渲染 ----------
-function setTab(t){ curTab=t; document.querySelectorAll('.tabs button').forEach(b=>b.classList.toggle('active', b.dataset.tab===t)); $('stockSub').style.display = t==='stock' ? 'flex' : 'none'; hidePanel(); renderList(); }
+function setTab(t){ curTab=t; document.querySelectorAll('.tabs button').forEach(b=>b.classList.toggle('active', b.dataset.tab===t)); $('stockSub').style.display = t==='stock' ? 'flex' : 'none'; $('search').style.display = t==='bank' ? 'none' : ''; hidePanel(); renderList(); }
 function setMkt(m){ curMkt=m; document.querySelectorAll('.subtabs button').forEach(b=>b.classList.toggle('active', b.dataset.mkt===m)); renderList(); }
 function curPrice(id){ return P[id] ? P[id].price : null; }
 function holdingValue(h){ const p=curPrice(h.id); return p===null ? h.margin : h.margin + (p-h.entry)*h.qty; }
@@ -281,7 +397,8 @@ function holdingPnl(h){ const p=curPrice(h.id); return p===null ? 0 : (p-h.entry
 function totals(){
   let hv=0, un=0;
   S.holdings.forEach(h=>{ hv+=holdingValue(h); un+=holdingPnl(h); });
-  return {total: S.cash+hv, hv: hv, un: un, pnl: S.realized+un};
+  const dep = S.deposits.reduce((s,d)=>s+d.amount, 0);
+  return {total: S.cash+hv+dep, hv: hv, un: un, pnl: S.realized+un, dep: dep};
 }
 function render(){
   const T = totals();
@@ -289,6 +406,7 @@ function render(){
   $('cash').textContent = fmt(S.cash);
   $('holdVal').textContent = fmt(T.hv);
   $('holdCount').textContent = '本金 + 浮动盈亏 · ' + S.holdings.length + ' 只持仓';
+  $('depVal').textContent = fmt(T.dep);
   const el = $('totalPnl'); el.textContent = (T.pnl>=0?'+':'') + fmt(T.pnl); el.className = 'val ' + (T.pnl>0?'up':T.pnl<0?'down':'flat');
   $('reliefBtn').style.display = T.total<1000 ? '' : 'none';
   renderList(); renderHoldings(); renderTrades();
@@ -300,6 +418,7 @@ function renderList(){
   else if(curTab==='crypto') list = ASSETS.filter(a=>a.type==='crypto');
   else if(curTab==='etf') list = ASSETS.filter(a=>a.type==='etf'||a.type==='gold');
   else if(curTab==='fx') list = ASSETS.filter(a=>a.type==='fx');
+  else if(curTab==='bank'){ renderBank(); return; }
   else if(curTab==='hold'){ $('assetList').innerHTML = '<div style="color:#888;padding:12px 0;text-align:center">持仓在下方“我的持仓”里，点上面页签看行情。</div>'; return; }
   if(q) list = list.filter(a=> (a.name+a.code).toLowerCase().includes(q));
   if(!list.length){ $('assetList').innerHTML='<div style="color:#888;padding:12px 0;text-align:center">没有匹配的标的</div>'; return; }
@@ -335,6 +454,104 @@ function renderTrades(){
     const cls = t.act==='爆仓' ? 'down' : t.pnl>0 ? 'up' : t.pnl<0 ? 'down' : 'flat';
     return '<div class="t"><span class="time">'+new Date(t.time).toLocaleString('zh-CN')+'</span>　'+t.name+'　<b>'+t.act+'</b>　金额 '+fmt(t.amount)+(t.act!=='买入' ? '　盈亏 <span class="'+cls+'">'+(t.pnl>=0?'+':'')+fmt(t.pnl)+'</span>' : '')+'</div>';
   }).join('');
+}
+
+// ---------- 银行 ----------
+const BANK_TERMS = [1,7,30,90];
+const BANK_CURS = [['CNY','人民币'],['USD','美元'],['HKD','港币']];
+const BANK_NAMES = {hsbc:'汇丰', ewb:'华美', cmb:'招商银行'};
+const BANK_RATES = { // 年利率 %，按 [1天,7天,30天,90天]；模拟利率，仅供体验
+  hsbc:{CNY:[0.30,0.80,1.20,1.80], USD:[1.00,2.00,3.50,4.50], HKD:[0.70,1.40,2.20,3.20]},
+  ewb:{CNY:[0.25,0.70,1.10,1.60], USD:[1.30,2.30,3.80,4.80], HKD:[0.50,1.20,2.00,3.00]},
+  cmb:{CNY:[0.50,1.00,1.40,2.00], USD:[1.00,2.00,3.50,4.50], HKD:[0.50,1.20,2.00,3.00]},
+};
+let curBank='hsbc', curDep=null;
+function setBank(b){ curBank=b; curDep=null; renderBank(); }
+function renderBank(){
+  const banks = [['hsbc','汇丰'],['ewb','华美'],['cmb','招商银行']];
+  let html = '<div style="font-weight:700;font-size:15px;margin-bottom:6px">🏦 银行定期存款</div>';
+  html += '<div style="font-size:13px;color:#555;line-height:1.7">存款用人民币，选货币只决定利率。期限越长利率越高，存入后锁定，到期自动本息到账；提前取出没有利息。利率为模拟利率，仅供体验。</div>';
+  html += '<div class="subtabs" style="margin-top:10px">' + banks.map(b=>'<button class="'+(b[0]===curBank?'active':'')+'" onclick="setBank(\''+b[0]+'\')">'+b[1]+'</button>').join('') + '</div>';
+  html += '<table class="bankTable"><tr><th>货币 \\ 期限</th>'+BANK_TERMS.map(t=>'<th>'+t+'天</th>').join('')+'</tr>';
+  BANK_CURS.forEach(c=>{
+    html += '<tr><td><b>'+c[1]+'</b></td>';
+    BANK_TERMS.forEach((t,ti)=>{
+      const rate = BANK_RATES[curBank][c[0]][ti];
+      html += '<td>'+rate.toFixed(2)+'%<br><button class="primary" onclick="openDep(\''+curBank+'\',\''+c[0]+'\','+ti+')">存入</button></td>';
+    });
+    html += '</tr>';
+  });
+  html += '</table>';
+  html += '<div class="depForm" id="depForm"></div>';
+  html += '<div style="font-weight:700;font-size:15px;margin:14px 0 6px">📋 我的定期存款</div>';
+  if(!S.deposits.length) html += '<div style="color:#888;padding:6px 0">暂无定期存款。</div>';
+  else {
+    html += S.deposits.map(d=>{
+      const interest = d.amount * d.rate/100 * d.term/365;
+      const left = d.maturity - Date.now();
+      const leftTxt = left<=0 ? '已到期' : '还有 '+Math.floor(left/86400000)+' 天 '+Math.floor(left%86400000/3600000)+' 小时';
+      return '<div class="row"><div class="nm"><b>'+BANK_NAMES[d.bank]+' · '+(BANK_CURS.find(c=>c[0]===d.cur)||[])[1]+' '+d.term+'天定期</b><small>本金 '+fmt(d.amount)+' · 年利率 '+d.rate.toFixed(2)+'% · 预期利息 '+fmt(interest)+' · 到期 '+new Date(d.maturity).toLocaleString('zh-CN')+'</small></div><div class="pr"><div class="p">'+leftTxt+'</div><div class="c"><button onclick="earlyWithdraw(\''+d.id+'\')">提前取出（无利息）</button></div></div></div>';
+    }).join('');
+  }
+  $('assetList').innerHTML = html;
+  if(curDep) showDepForm();
+}
+function openDep(bank, cur, ti){ curDep = {bank:bank, cur:cur, term:BANK_TERMS[ti], rate:BANK_RATES[bank][cur][ti]}; showDepForm(); }
+function showDepForm(){
+  if(!curDep) return;
+  const f = $('depForm'); if(!f) return;
+  f.style.display='block';
+  f.innerHTML = '<div style="font-weight:700">存入 · '+BANK_NAMES[curDep.bank]+' · '+(BANK_CURS.find(c=>c[0]===curDep.cur)||[])[1]+' '+curDep.term+'天定期 · 年利率 '+curDep.rate.toFixed(2)+'%</div>'
+    + '<div style="margin-top:8px">存入金额（元）</div>'
+    + '<div class="amtRow"><input id="depAmt" type="number" min="100" step="100" value="10000" oninput="updateDepCalc()"><button onclick="setDepAmt(10000)">1万</button><button onclick="setDepAmt(100000)">10万</button><button onclick="setDepAmtMax()">全部</button></div>'
+    + '<div class="meta" id="depCalc"></div>'
+    + '<div style="margin-top:10px;display:flex;gap:8px"><button class="primary" style="flex:1" onclick="doDep()">确认存入</button><button style="flex:1" onclick="closeDepForm()">取消</button></div>';
+  updateDepCalc();
+  f.scrollIntoView({behavior:'smooth', block:'nearest'});
+}
+function updateDepCalc(){
+  if(!curDep) return;
+  const amt = parseFloat($('depAmt').value)||0;
+  const interest = amt * curDep.rate/100 * curDep.term/365;
+  const mat = new Date(Date.now() + curDep.term*86400000);
+  $('depCalc').innerHTML = '本金 '+fmt(amt)+' · 到期利息约 '+fmt(interest)+' · 到期到账 '+fmt(amt+interest)+' · 到期时间 '+mat.toLocaleString('zh-CN');
+}
+function setDepAmt(v){ $('depAmt').value = Math.min(v, Math.max(100, Math.floor(S.cash))); updateDepCalc(); }
+function setDepAmtMax(){ $('depAmt').value = Math.max(100, Math.floor(S.cash)); updateDepCalc(); }
+function closeDepForm(){ curDep=null; const f=$('depForm'); if(f) f.style.display='none'; }
+function doDep(){
+  if(!curDep) return;
+  const amt = Math.floor(parseFloat($('depAmt').value)||0);
+  if(amt<100){ alert('最少存入 100 元'); return; }
+  if(amt>S.cash){ alert('现金不足，可用 '+fmt(S.cash)); return; }
+  const dep = {id:'dep-'+Date.now()+'-'+Math.floor(Math.random()*1000), bank:curDep.bank, cur:curDep.cur, term:curDep.term, amount:amt, rate:curDep.rate, start:Date.now(), maturity:Date.now()+curDep.term*86400000};
+  S.cash -= amt; S.deposits.push(dep);
+  S.trades.unshift({time:Date.now(), id:'', name:BANK_NAMES[curDep.bank]+'·'+(BANK_CURS.find(c=>c[0]===curDep.cur)||[])[1]+curDep.term+'天定期', act:'定期存入', amount:amt, pnl:0});
+  S.trades = S.trades.slice(0,100);
+  save(); closeDepForm(); render();
+}
+function checkDeposits(){
+  const now = Date.now(); let matured = [];
+  S.deposits = S.deposits.filter(d=>{
+    if(now >= d.maturity){
+      const interest = d.amount * d.rate/100 * d.term/365;
+      S.cash += d.amount + interest;
+      S.trades.unshift({time:now, id:'', name:BANK_NAMES[d.bank]+'·'+(BANK_CURS.find(c=>c[0]===d.cur)||[])[1]+d.term+'天定期', act:'定期到期', amount:d.amount+interest, pnl:interest});
+      matured.push(BANK_NAMES[d.bank]+'·'+(BANK_CURS.find(c=>c[0]===d.cur)||[])[1]+d.term+'天（+'+fmt(interest)+'）');
+      return false;
+    }
+    return true;
+  });
+  if(matured.length){ S.trades = S.trades.slice(0,100); save(); const b=$('liqBanner'); b.style.display='block'; b.textContent='🏦 定期到期：'+matured.join('、')+'，本息已到账。'; }
+}
+function earlyWithdraw(id){
+  const d = S.deposits.find(x=>x.id===id); if(!d) return;
+  if(!confirm('提前取出没有利息，确定取出本金 '+fmt(d.amount)+' 吗？')) return;
+  S.cash += d.amount;
+  S.trades.unshift({time:Date.now(), id:'', name:BANK_NAMES[d.bank]+'·'+(BANK_CURS.find(c=>c[0]===d.cur)||[])[1]+d.term+'天定期', act:'提前取出', amount:d.amount, pnl:0});
+  S.trades = S.trades.slice(0,100);
+  S.deposits = S.deposits.filter(x=>x.id!==id);
+  save(); render();
 }
 
 // ---------- 交易 ----------
@@ -402,10 +619,20 @@ function checkLiquidation(){
   });
   if(dead.length){ const b=$('liqBanner'); b.style.display='block'; b.textContent='⚠️ 爆仓：'+dead.join('、')+' 已被强制卖出，本金归零。杠杆越高，爆仓越容易。'; save(); }
 }
-function resetAll(){ if(!confirm('确定重新开始吗？会清空所有持仓和交易记录，现金恢复为 100,000 元。')) return; S={cash:100000, holdings:[], trades:[], realized:0}; save(); render(); }
-function claimRelief(){ S.cash += 100000; S.trades.unshift({time:Date.now(), id:'', name:'系统', act:'救济金', amount:100000, pnl:0}); save(); render(); }
+function resetAll(){ if(!confirm('确定重新开始吗？会清空所有持仓、存款和交易记录，现金恢复为 1,000,000 元（用户名和设备码保留）。')) return; S={cash:1000000, holdings:[], trades:[], realized:0, username:S.username, device:S.device, claimed:S.claimed, deposits:[]}; save(); render(); }
+function claimRelief(){ S.cash += 1000000; S.trades.unshift({time:Date.now(), id:'', name:'系统', act:'救济金', amount:1000000, pnl:0}); save(); render(); }
 
-refresh(false);
+async function init(){
+  let loaded = null;
+  try{ loaded = JSON.parse(localStorage.getItem(KEY)||'null'); }catch(e){}
+  if(!loaded) loaded = await idbGet();
+  if(loaded && typeof loaded.cash==='number' && Array.isArray(loaded.holdings)) S = loaded;
+  normalizeSave();
+  $('userName').value = S.username;
+  await claimGifts();
+  refresh(false);
+}
+init();
 setInterval(()=>refresh(false), 60000);
 </script>
 </body>
