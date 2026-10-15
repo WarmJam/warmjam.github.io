@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>📈 模拟投资 · WarmJam</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;background:#f2f4f7;color:#222}
+a{color:#1677ff;text-decoration:none}
+header{position:sticky;top:0;z-index:10;background:#fff;border-bottom:1px solid #e5e5e5;padding:10px 14px;display:flex;align-items:center;gap:10px}
+header h1{font-size:18px;margin:0;flex:1}
+header .back{font-size:15px}
+main{max-width:860px;margin:0 auto;padding:12px 12px 40px}
+.card{background:#fff;border:1px solid #e8e8e8;border-radius:12px;padding:14px;margin-bottom:12px}
+.acct{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.acct .cell{border:1px solid #eee;border-radius:10px;padding:10px}
+.acct .lbl{font-size:12px;color:#888}
+.acct .val{font-size:20px;font-weight:700;margin-top:2px}
+.acct .sub{font-size:12px;color:#888}
+.up{color:#e03131}.down{color:#2f9e44}.flat{color:#888}
+.row{display:flex;align-items:center;gap:8px;padding:10px 2px;border-bottom:1px solid #f0f0f0}
+.row:last-child{border-bottom:none}
+.row .nm{flex:1;min-width:0}
+.row .nm b{font-size:15px}
+.row .nm small{display:block;color:#888;font-size:12px}
+.row .pr{text-align:right;min-width:110px}
+.row .pr .p{font-size:15px;font-weight:700}
+.row .pr .c{font-size:12px}
+button{cursor:pointer;border:1px solid #ddd;background:#fff;border-radius:8px;padding:7px 12px;font-size:14px}
+button.primary{background:#1677ff;color:#fff;border-color:#1677ff}
+button.danger{background:#e03131;color:#fff;border-color:#e03131}
+button:disabled{opacity:.45;cursor:not-allowed}
+.tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.tabs button.active{background:#111;color:#fff;border-color:#111}
+.subtabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+.subtabs button{padding:5px 10px;font-size:13px}
+.subtabs button.active{background:#1677ff;color:#fff;border-color:#1677ff}
+.search{width:100%;padding:9px 12px;border:1px solid #ddd;border-radius:9px;font-size:15px;margin-bottom:8px}
+#tradePanel{display:none;border:2px solid #1677ff}
+.levs{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
+.levs button.active{background:#1677ff;color:#fff;border-color:#1677ff}
+.amtRow{display:flex;gap:8px;align-items:center}
+.amtRow input{flex:1;padding:9px 10px;border:1px solid #ddd;border-radius:8px;font-size:16px;width:100%}
+.meta{font-size:13px;color:#555;line-height:1.7;margin-top:8px}
+.hold .nm b{font-size:14px}
+.hold .pr{min-width:96px}
+.sellBtns{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end;margin-top:4px}
+.sellBtns button{padding:4px 8px;font-size:12px}
+.liqWarn{background:#fff3f3;border:1px solid #ffc9c9;color:#c92a2a;border-radius:8px;padding:8px 10px;font-size:13px;margin-bottom:10px;display:none}
+.banner{background:#fff3bf;border:1px solid #fab005;border-radius:8px;padding:9px 11px;font-size:13px;margin-bottom:10px;display:none}
+details.card summary{cursor:pointer;font-weight:700;font-size:15px}
+details.card .help{font-size:14px;line-height:1.85;color:#444;margin-top:8px}
+details.card .help b{color:#111}
+.foot{font-size:12px;color:#999;text-align:center;line-height:1.7;margin-top:6px}
+.trades{font-size:13px;line-height:1.8}
+.trades .t{border-bottom:1px solid #f0f0f0;padding:6px 2px}
+.trades .t:last-child{border-bottom:none}
+.trades .time{color:#999;font-size:12px}
+.topBtns{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+</style>
+</head>
+<body>
+<header><a class="back" href="index.html">← 主页</a><h1>📈 模拟投资</h1><span id="updTime" style="font-size:12px;color:#888"></span></header>
+<main>
+<div class="card">
+  <div class="acct">
+    <div class="cell"><div class="lbl">总资产（元）</div><div class="val" id="totalAssets">—</div><div class="sub">现金 + 持仓市值</div></div>
+    <div class="cell"><div class="lbl">可用现金（元）</div><div class="val" id="cash">—</div><div class="sub">可用于买入的钱</div></div>
+    <div class="cell"><div class="lbl">持仓市值（元）</div><div class="val" id="holdVal">—</div><div class="sub" id="holdCount"></div></div>
+    <div class="cell"><div class="lbl">累计盈亏（元）</div><div class="val" id="totalPnl">—</div><div class="sub">已卖出的 + 还在持有的</div></div>
+  </div>
+  <div class="topBtns">
+    <button class="primary" onclick="refresh(true)">🔄 刷新行情</button>
+    <button onclick="resetAll()">♻️ 重新开始</button>
+    <button id="reliefBtn" style="display:none" onclick="claimRelief()">🆘 领取救济金 100,000 元</button>
+  </div>
+  <div class="banner" id="liqBanner"></div>
+</div>
+
+<details class="card"><summary>📖 新手必读（点开看，不懂投资也能玩）</summary>
+<div class="help">
+<b>股票：</b>买一家公司的一小部分。公司赚钱、股价涨，你就赚钱；公司亏钱、股价跌，你就亏钱。<br>
+<b>ETF：</b>打包一篮子股票的基金。比如 QQQ = 纳斯达克 100 家大公司打包，买它等于买整个板块，不用挑个股。适合新手。<br>
+<b>黄金：</b>GLD / 黄金 ETF 跟着金价走，大家常说的“避险”就是指它。<br>
+<b>虚拟货币：</b>去中心化的数字资产，24 小时交易，没有涨跌停，波动比股票大得多。这里按 USDT 计价（USDT ≈ 1 美元的稳定币）。<br>
+<b>汇率：</b>不同国家货币的兑换价格。买“美元”就是持有美元，美元对人民币升值你就赚；日元按 100 日元为 1 手。<br>
+<b>杠杆：</b>借钱放大。2 倍杠杆 = 你出 1 万，借 1 万，买 2 万的货。涨 1% 你赚 2%，跌 1% 你亏 2%。<br>
+<b>爆仓：</b>杠杆仓位亏到本金快没了，系统强制卖出，本金归零。杠杆越高，爆仓越容易。1 倍 = 不带杠杆，不会爆仓。<br>
+<b>红涨绿跌：</b>中国股市的习惯，红色是涨，绿色是跌（和美国反过来）。<br>
+<b>模拟盘：</b>全是虚拟资金，不花真钱，亏了也不心疼，适合练手。起始资金 100,000 元。
+</div></details>
+
+<div class="card">
+  <div class="tabs">
+    <button data-tab="stock" class="active" onclick="setTab('stock')">📊 股票（80）</button>
+    <button data-tab="crypto" onclick="setTab('crypto')">🪙 虚拟货币（20）</button>
+    <button data-tab="etf" onclick="setTab('etf')">🧺 ETF · 黄金（8）</button>
+    <button data-tab="fx" onclick="setTab('fx')">💱 汇率（11）</button>
+    <button data-tab="hold" onclick="setTab('hold')">💼 我的持仓</button>
+  </div>
+  <div class="subtabs" id="stockSub" style="display:flex">
+    <button data-mkt="all" class="active" onclick="setMkt('all')">全部</button>
+    <button data-mkt="us" onclick="setMkt('us')">美股</button>
+    <button data-mkt="hk" onclick="setMkt('hk')">港股</button>
+    <button data-mkt="a" onclick="setMkt('a')">A股</button>
+  </div>
+  <input class="search" id="search" placeholder="🔍 搜名字或代码，比如 苹果 / AAPL / 600519" oninput="renderList()">
+  <div id="assetList"><div style="color:#888;padding:12px 0;text-align:center">正在加载行情…</div></div>
+</div>
+
+<div class="card" id="tradePanel">
+  <div style="font-weight:700;font-size:16px" id="tpTitle"></div>
+  <div class="meta" id="tpInfo"></div>
+  <div style="margin-top:10px;font-size:14px">杠杆倍数</div>
+  <div class="levs" id="tpLevs"></div>
+  <div style="font-size:14px">买入金额（元，本金）</div>
+  <div class="amtRow"><input id="tpAmt" type="number" min="100" step="100" value="1000"><button onclick="setAmt(1000)">1千</button><button onclick="setAmt(10000)">1万</button><button onclick="setAmtMax()">全部</button></div>
+  <div class="meta" id="tpCalc"></div>
+  <div style="margin-top:12px;display:flex;gap:8px"><button class="primary" style="flex:1" onclick="doBuy()">确认买入</button><button style="flex:1" onclick="hidePanel()">取消</button></div>
+</div>
+
+<div class="card" id="holdCard">
+  <div style="font-weight:700;font-size:16px;margin-bottom:6px">💼 我的持仓</div>
+  <div class="liqWarn" id="liqWarn"></div>
+  <div id="holdList"></div>
+</div>
+
+<div class="card">
+  <div style="font-weight:700;font-size:16px;margin-bottom:6px">🧾 最近交易</div>
+  <div class="trades" id="tradeList"></div>
+</div>
+
+<div class="foot">模拟盘 · 虚拟资金 · 不构成投资建议。<br>行情来自腾讯 / CoinGecko / ExchangeRate-API 公开免费接口，仅供体验。股票涨跌幅为当日涨跌，虚拟货币与汇率为实时价。</div>
+</main>
+<script>
+'use strict';
+// ---------- 资产定义 ----------
+// 股票：id,名字,代码,市场(us/hk/a),腾讯符号,杠杆上限
+const STOCK_DEFS = [
+['AAPL','苹果','us'],['MSFT','微软','us'],['AMZN','亚马逊','us'],['GOOGL','谷歌','us'],['NVDA','英伟达','us'],
+['META','Meta','us'],['TSLA','特斯拉','us'],['AMD','超微半导体','us'],['NFLX','奈飞','us'],['JPM','摩根大通','us'],
+['V','Visa','us'],['MA','万事达','us'],['UNH','联合健康','us'],['XOM','埃克森美孚','us'],['COST','好市多','us'],
+['PLTR','Palantir','us'],['AVGO','博通','us'],['LLY','礼来','us'],['TSM','台积电','us'],['MU','美光','us'],
+['BRK.B','伯克希尔','us'],['KO','可口可乐','us'],['WMT','沃尔玛','us'],['JNJ','强生','us'],['DIS','迪士尼','us'],
+['CRWV','CoreWeave','us'],['CRCL','Circle','us'],['FIG','Figma','us'],['ALAB','Astera Labs','us'],['RDDT','Reddit','us'],
+['00700','腾讯控股','hk'],['09988','阿里巴巴','hk'],['03690','美团','hk'],['01299','友邦保险','hk'],['00941','中国移动','hk'],
+['01810','小米集团','hk'],['01211','比亚迪股份','hk'],['00981','中芯国际','hk'],['09992','泡泡玛特','hk'],['06181','老铺黄金','hk'],
+['00005','汇丰控股','hk'],['00001','长江和记实业','hk'],['00002','中电控股','hk'],['00388','香港交易所','hk'],['00016','新鸿基地产','hk'],
+['02097','蜜雪集团','hk'],['01364','古茗','hk'],['03750','宁德时代','hk'],['09868','小鹏汽车','hk'],['02015','理想汽车','hk'],
+['09618','京东集团','hk'],['02318','中国平安','hk'],['03888','金山软件','hk'],['01876','百威亚太','hk'],['01024','快手','hk'],
+['600519','贵州茅台','a'],['300750','宁德时代','a'],['000858','五粮液','a'],['600036','招商银行','a'],['002594','比亚迪','a'],
+['688256','寒武纪','a'],['688981','中芯国际','a'],['002475','立讯精密','a'],['000977','浪潮信息','a'],['600941','中国移动','a'],
+['601398','工商银行','a'],['600000','浦发银行','a'],['000002','万科A','a'],['600900','长江电力','a'],['601318','中国平安','a'],
+['300308','中际旭创','a'],['300502','新易盛','a'],['002230','科大讯飞','a'],['688008','澜起科技','a'],['300124','汇川技术','a'],
+['000333','美的集团','a'],['601888','中国中免','a'],['600809','山西汾酒','a'],['002415','海康威视','a'],['600276','恒瑞医药','a'],
+];
+const ETF_DEFS = [
+['QQQ','纳指100ETF','us','etf'],['SPY','标普500ETF','us','etf'],['DIA','道指ETF','us','etf'],['IWM','罗素2000ETF','us','etf'],['GLD','黄金ETF','us','gold'],
+['510300','沪深300ETF','a','etf'],['159915','创业板ETF','a','etf'],['518880','黄金ETF','a','gold'],
+];
+const CRYPTO_DEFS = [
+['bitcoin','BTC','比特币'],['ethereum','ETH','以太坊'],['binancecoin','BNB','币安币'],['ripple','XRP','瑞波币'],['cardano','ADA','艾达币'],
+['solana','SOL','索拉纳'],['sui','SUI','SUI'],['hyperliquid','HYPE','HYPE'],['tron','TRX','波场'],['chainlink','LINK','Chainlink'],
+['litecoin','LTC','莱特币'],['dogecoin','DOGE','狗狗币'],['bitcoin-cash','BCH','比特币现金'],['ethereum-classic','ETC','以太坊经典'],['stellar','XLM','恒星币'],
+['pudgy-penguins','PENGU','胖企鹅'],['kaito','KAITO','KAITO'],['pi-network','PI','Pi'],['pump','PUMP','PUMP'],['magic-eden','ME','Magic Eden'],
+];
+const FX_DEFS = [
+['USD','美元',1],['HKD','港币',1],['USDT','泰达币',1],['EUR','欧元',1],['GBP','英镑',1],
+['JPY','日元',100],['CHF','瑞士法郎',1],['AUD','澳元',1],['CAD','加元',1],['NZD','纽元',1],['SGD','新元',1],
+];
+const ASSETS = [];
+STOCK_DEFS.forEach(d=>{const t = d[2]==='us' ? 'us'+d[0] : d[2]==='hk' ? 'hk'+d[0] : (d[0][0]==='6' ? 'sh'+d[0] : 'sz'+d[0]); ASSETS.push({id:d[0], name:d[1], code:d[0], type:'stock', mkt:d[2], t:t, lev:2});});
+ETF_DEFS.forEach(d=>{const t = d[2]==='us' ? 'us'+d[0] : (d[0][0]==='6' ? 'sh'+d[0] : 'sz'+d[0]); ASSETS.push({id:d[0], name:d[1], code:d[0], type:d[3], mkt:d[2], t:t, lev:2});});
+CRYPTO_DEFS.forEach(d=>ASSETS.push({id:d[1], name:d[2], code:d[1]+'/USDT', type:'crypto', mkt:'crypto', cg:d[0], lev:10}));
+FX_DEFS.forEach(d=>ASSETS.push({id:'FX_'+d[0], name:d[1], code:d[0], type:'fx', mkt:'fx', fx:d[0], unit:d[2], lev:1}));
+const BY_ID = {}; ASSETS.forEach(a=>BY_ID[a.id]=a);
+
+// ---------- 状态 ----------
+const KEY='investSave';
+let S = null;
+try{ S = JSON.parse(localStorage.getItem(KEY)||'null'); }catch(e){ S=null; }
+if(!S || typeof S.cash!=='number' || !Array.isArray(S.holdings)) S = {cash:100000, holdings:[], trades:[], realized:0};
+function save(){ try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){} }
+let P = {}; // id -> {price(CNY), chg}
+let curTab='stock', curMkt='all', curAsset=null, curLev=1;
+const $ = id=>document.getElementById(id);
+const fmt = n=> (n<0?'-':'') + '¥' + Math.abs(n).toLocaleString('zh-CN',{minimumFractionDigits:2, maximumFractionDigits:2});
+const fmtP = n=> n>=1000 ? '¥'+n.toLocaleString('zh-CN',{minimumFractionDigits:2, maximumFractionDigits:2}) : '¥'+n.toFixed(n>=100?2:4);
+const pctCls = c=> c>0?'up':c<0?'down':'flat';
+const pctTxt = c=> c===null||c===undefined ? '—' : (c>0?'+':'')+c.toFixed(2)+'%';
+
+// ---------- 行情 ----------
+function loadScript(src, timeoutMs){
+  return new Promise(res=>{
+    const s=document.createElement('script'); let done=false;
+    const fin=()=>{ if(done) return; done=true; try{s.remove();}catch(e){} res(); };
+    s.onload=fin; s.onerror=fin; s.src=src; document.head.appendChild(s);
+    setTimeout(fin, timeoutMs||8000);
+  });
+}
+async function loadTencent(){
+  const syms = ASSETS.filter(a=>a.t).map(a=>a.t);
+  const out={};
+  for(let i=0;i<syms.length;i+=30){
+    const batch = syms.slice(i,i+30);
+    await loadScript('https://qt.gtimg.cn/q='+batch.join(','));
+    batch.forEach(sym=>{
+      const raw = window['v_'+sym];
+      if(typeof raw==='string' && raw.length>5){
+        const f = raw.split('~');
+        const price=parseFloat(f[3]), prev=parseFloat(f[4]);
+        if(price>0) out[sym]={price:price, prev:prev>0?prev:null};
+      }
+    });
+  }
+  return out;
+}
+async function loadCrypto(){
+  const ids = CRYPTO_DEFS.map(d=>d[0]).concat(['tether']);
+  const url='https://api.coingecko.com/api/v3/simple/price?ids='+ids.join(',')+'&vs_currencies=usd,cny';
+  const r = await fetch(url); if(!r.ok) throw new Error('coingecko '+r.status);
+  return await r.json();
+}
+async function loadFX(){
+  const r = await fetch('https://open.er-api.com/v6/latest/USD'); if(!r.ok) throw new Error('fx '+r.status);
+  return await r.json();
+}
+async function refresh(manual){
+  const btn = document.querySelector('button[onclick="refresh(true)"]'); if(btn) btn.disabled=true;
+  try{
+    const [tx, cg, fxj] = await Promise.all([loadTencent(), loadCrypto(), loadFX()]);
+    const rates = fxj.rates||{};
+    const cnyPer = {}; // 每 1 单位外币 = 多少人民币
+    if(rates.CNY>0){
+      const conv = c=> rates[c]>0 ? rates.CNY/rates[c] : null;
+      cnyPer.USD = rates.CNY; cnyPer.HKD = conv('HKD'); cnyPer.EUR = conv('EUR'); cnyPer.GBP = conv('GBP');
+      cnyPer.JPY = conv('JPY')!==null ? conv('JPY')*100 : null; cnyPer.CHF = conv('CHF'); cnyPer.AUD = conv('AUD');
+      cnyPer.CAD = conv('CAD'); cnyPer.NZD = conv('NZD'); cnyPer.SGD = conv('SGD');
+    }
+    const usdtCny = cg.tether && cg.tether.cny>0 ? cg.tether.cny : null;
+    const usdtUsd = cg.tether && cg.tether.usd>0 ? cg.tether.usd : 1;
+    if(usdtCny) cnyPer.USDT = usdtCny;
+    ASSETS.forEach(a=>{
+      if(a.t){
+        const q = tx[a.t];
+        if(q && q.price>0){
+          const rate = a.mkt==='us' ? cnyPer.USD : a.mkt==='hk' ? cnyPer.HKD : 1;
+          if(rate){ P[a.id]={price:q.price*rate, chg: q.prev? (q.price-q.prev)/q.prev*100 : null}; }
+        }
+      } else if(a.cg){
+        const c = cg[a.cg];
+        if(c && c.usd>0 && usdtCny){ P[a.id]={price:(c.usd/usdtUsd)*usdtCny, chg:null}; }
+      } else if(a.fx){
+        const r = cnyPer[a.fx];
+        if(r){ P[a.id]={price:r, chg:null}; }
+      }
+    });
+    $('updTime').textContent = '更新于 '+new Date().toLocaleTimeString('zh-CN');
+    checkLiquidation();
+    render();
+  }catch(e){
+    $('assetList').innerHTML = '<div style="color:#c92a2a;padding:12px 0;text-align:center">行情加载失败（'+String(e.message||e)+'），点“刷新行情”重试。</div>';
+  }finally{ if(btn) btn.disabled=false; }
+}
+
+// ---------- 渲染 ----------
+function setTab(t){ curTab=t; document.querySelectorAll('.tabs button').forEach(b=>b.classList.toggle('active', b.dataset.tab===t)); $('stockSub').style.display = t==='stock' ? 'flex' : 'none'; hidePanel(); renderList(); }
+function setMkt(m){ curMkt=m; document.querySelectorAll('.subtabs button').forEach(b=>b.classList.toggle('active', b.dataset.mkt===m)); renderList(); }
+function curPrice(id){ return P[id] ? P[id].price : null; }
+function holdingValue(h){ const p=curPrice(h.id); return p===null ? h.margin : h.margin + (p-h.entry)*h.qty; }
+function holdingPnl(h){ const p=curPrice(h.id); return p===null ? 0 : (p-h.entry)*h.qty; }
+function totals(){
+  let hv=0, un=0;
+  S.holdings.forEach(h=>{ hv+=holdingValue(h); un+=holdingPnl(h); });
+  return {total: S.cash+hv, hv: hv, un: un, pnl: S.realized+un};
+}
+function render(){
+  const T = totals();
+  $('totalAssets').textContent = fmt(T.total);
+  $('cash').textContent = fmt(S.cash);
+  $('holdVal').textContent = fmt(T.hv);
+  $('holdCount').textContent = S.holdings.length + ' 只持仓';
+  const el = $('totalPnl'); el.textContent = (T.pnl>=0?'+':'') + fmt(T.pnl); el.className = 'val ' + (T.pnl>0?'up':T.pnl<0?'down':'flat');
+  $('reliefBtn').style.display = T.total<1000 ? '' : 'none';
+  renderList(); renderHoldings(); renderTrades();
+}
+function renderList(){
+  const q = ($('search').value||'').trim().toLowerCase();
+  let list = [];
+  if(curTab==='stock') list = ASSETS.filter(a=>a.type==='stock' && (curMkt==='all'||a.mkt===curMkt));
+  else if(curTab==='crypto') list = ASSETS.filter(a=>a.type==='crypto');
+  else if(curTab==='etf') list = ASSETS.filter(a=>a.type==='etf'||a.type==='gold');
+  else if(curTab==='fx') list = ASSETS.filter(a=>a.type==='fx');
+  else if(curTab==='hold'){ $('assetList').innerHTML = '<div style="color:#888;padding:12px 0;text-align:center">持仓在下方“我的持仓”里，点上面页签看行情。</div>'; return; }
+  if(q) list = list.filter(a=> (a.name+a.code).toLowerCase().includes(q));
+  if(!list.length){ $('assetList').innerHTML='<div style="color:#888;padding:12px 0;text-align:center">没有匹配的标的</div>'; return; }
+  $('assetList').innerHTML = list.map(a=>{
+    const pr = P[a.id];
+    const priceTxt = pr ? fmtP(pr.price) : '—';
+    const chgTxt = pr ? pctTxt(pr.chg) : '—';
+    const chgCls = pr ? pctCls(pr.chg||0) : 'flat';
+    const sub = a.type==='fx' ? (a.unit===100 ? '100 '+a.code+' = '+priceTxt : '1 '+a.code+' = '+priceTxt) : a.code + (a.type==='crypto' ? ' · USDT计价' : a.mkt==='us' ? ' · 美股' : a.mkt==='hk' ? ' · 港股' : a.mkt==='a' ? ' · A股' : '');
+    return '<div class="row"><div class="nm"><b>'+a.name+'</b><small>'+sub+'</small></div><div class="pr"><div class="p">'+priceTxt+'</div><div class="c '+chgCls+'">'+chgTxt+'</div></div><button class="primary" onclick="openBuy(\''+a.id+'\')" '+(pr?'':'disabled')+'>买入</button></div>';
+  }).join('');
+}
+function renderHoldings(){
+  if(!S.holdings.length){ $('holdList').innerHTML='<div style="color:#888;padding:8px 0">暂无持仓，去上面挑一个买入试试。</div>'; $('liqWarn').style.display='none'; return; }
+  let warn='';
+  const html = S.holdings.map(h=>{
+    const a=BY_ID[h.id]; const p=curPrice(h.id); const pnl=holdingPnl(h);
+    const pnlPct = h.margin>0 ? pnl/h.margin*100 : 0;
+    const liq = h.entry*(1-1/h.lev);
+    const near = h.lev>1 && p!==null && p < liq*1.15;
+    if(near) warn += '⚠️ '+a.name+'（'+h.lev+'倍）接近爆仓线 '+fmtP(liq)+'，现价 '+fmtP(p)+'。 ';
+    const prTxt = p===null ? '—' : fmtP(p);
+    return '<div class="row hold"><div class="nm"><b>'+a.name+'</b><small>'+a.code+' · '+h.qty.toFixed(4)+' 份 · '+h.lev+'倍杠杆 · 成本 '+fmtP(h.entry)+' · 爆仓价 '+(h.lev>1?fmtP(liq):'无')+'</small></div>'
+      +'<div class="pr"><div class="p '+(pnl>0?'up':pnl<0?'down':'flat')+'">'+(pnl>=0?'+':'')+fmt(pnl)+'</div><div class="c '+(pnlPct>0?'up':pnlPct<0?'down':'flat')+'">'+(pnlPct>=0?'+':'')+pnlPct.toFixed(2)+'% · 现价 '+prTxt+'</div>'
+      +'<div class="sellBtns"><button onclick="doSell(\''+h.key+'\',0.25)">卖25%</button><button onclick="doSell(\''+h.key+'\',0.5)">卖50%</button><button onclick="doSell(\''+h.key+'\',0.75)">卖75%</button><button class="danger" onclick="doSell(\''+h.key+'\',1)">全部卖出</button></div></div></div>';
+  }).join('');
+  $('holdList').innerHTML = html;
+  $('liqWarn').style.display = warn ? '' : 'none'; $('liqWarn').textContent = warn;
+}
+function renderTrades(){
+  if(!S.trades.length){ $('tradeList').innerHTML='<div style="color:#888">暂无交易记录。</div>'; return; }
+  $('tradeList').innerHTML = S.trades.slice(0,30).map(t=>{
+    const cls = t.act==='爆仓' ? 'down' : t.pnl>0 ? 'up' : t.pnl<0 ? 'down' : 'flat';
+    return '<div class="t"><span class="time">'+new Date(t.time).toLocaleString('zh-CN')+'</span>　'+t.name+'　<b>'+t.act+'</b>　金额 '+fmt(t.amount)+(t.act!=='买入' ? '　盈亏 <span class="'+cls+'">'+(t.pnl>=0?'+':'')+fmt(t.pnl)+'</span>' : '')+'</div>';
+  }).join('');
+}
+
+// ---------- 交易 ----------
+function openBuy(id){
+  const a=BY_ID[id]; const pr=P[id]; if(!pr) return;
+  curAsset=a; curLev=1; $('tradePanel').style.display='';
+  $('tpTitle').textContent = '买入 · '+a.name+'（'+a.code+'）';
+  $('tpInfo').textContent = '现价 '+fmtP(pr.price)+'　杠杆上限 '+a.lev+'倍　'+(a.lev>1 ? '1倍 = 不带杠杆，不会爆仓' : '外汇不带杠杆');
+  const levs = a.lev>=10 ? [1,2,5,10] : a.lev>=2 ? [1,2] : [1];
+  $('tpLevs').innerHTML = levs.map(l=>'<button data-lev="'+l+'" class="'+(l===1?'active':'')+'" onclick="setLev('+l+')">'+l+'倍</button>').join('');
+  $('tpAmt').value = Math.min(1000, Math.max(100, Math.floor(S.cash)));
+  updateCalc();
+  $('tradePanel').scrollIntoView({behavior:'smooth', block:'nearest'});
+}
+function setLev(l){ curLev=l; document.querySelectorAll('#tpLevs button').forEach(b=>b.classList.toggle('active', +b.dataset.lev===l)); updateCalc(); }
+function setAmt(v){ $('tpAmt').value = Math.min(v, Math.max(100, Math.floor(S.cash))); updateCalc(); }
+function setAmtMax(){ $('tpAmt').value = Math.max(100, Math.floor(S.cash)); updateCalc(); }
+function updateCalc(){
+  if(!curAsset) return;
+  const pr=P[curAsset.id]; if(!pr) return;
+  const amt = parseFloat($('tpAmt').value)||0;
+  const qty = amt*curLev/pr.price;
+  const liq = pr.price*(1-1/curLev);
+  $('tpCalc').innerHTML = '本金 '+fmt(amt)+'　·　实际买入 '+qty.toFixed(4)+' 份（市值 '+fmt(amt*curLev)+'）　·　'+(curLev>1 ? '跌到 '+fmtP(liq)+' 会爆仓，本金归零' : '不带杠杆，不会爆仓');
+}
+$('tpAmt').addEventListener('input', updateCalc);
+function hidePanel(){ $('tradePanel').style.display='none'; curAsset=null; }
+function doBuy(){
+  if(!curAsset) return;
+  const pr=P[curAsset.id]; if(!pr){ alert('行情还没加载好，稍等再试'); return; }
+  const amt = Math.floor(parseFloat($('tpAmt').value)||0);
+  if(amt<100){ alert('最少买入 100 元'); return; }
+  if(amt>S.cash){ alert('现金不足，可用 '+fmt(S.cash)); return; }
+  const qty = amt*curLev/pr.price;
+  const key = curAsset.id+'@'+curLev;
+  const h = S.holdings.find(x=>x.key===key);
+  if(h){ h.entry = (h.entry*h.qty + pr.price*qty)/(h.qty+qty); h.qty += qty; h.margin += amt; }
+  else S.holdings.push({key:key, id:curAsset.id, qty:qty, entry:pr.price, lev:curLev, margin:amt});
+  S.cash -= amt;
+  S.trades.unshift({time:Date.now(), id:curAsset.id, name:curAsset.name, act:'买入', amount:amt, pnl:0});
+  S.trades = S.trades.slice(0,100);
+  save(); hidePanel(); render();
+}
+function doSell(key, frac){
+  const h = S.holdings.find(x=>x.key===key); if(!h) return;
+  const a=BY_ID[h.id]; const pr=P[h.id]; if(!pr){ alert('行情还没加载好，稍等再试'); return; }
+  const sellQty = h.qty*frac;
+  const marginBack = h.margin*frac;
+  const pnl = (pr.price-h.entry)*sellQty;
+  S.cash += marginBack + pnl;
+  S.realized += pnl;
+  S.trades.unshift({time:Date.now(), id:h.id, name:a.name, act:'卖出', amount:marginBack+pnl, pnl:pnl});
+  S.trades = S.trades.slice(0,100);
+  h.qty -= sellQty; h.margin -= marginBack;
+  if(frac>=1 || h.qty<1e-9) S.holdings = S.holdings.filter(x=>x.key!==key);
+  save(); render();
+}
+function checkLiquidation(){
+  const dead=[];
+  S.holdings = S.holdings.filter(h=>{
+    const pr=P[h.id]; if(!pr || h.lev<=1) return true;
+    const liq = h.entry*(1-1/h.lev);
+    if(pr.price<=liq){ S.realized += -h.margin; S.trades.unshift({time:Date.now(), id:h.id, name:BY_ID[h.id].name, act:'爆仓', amount:0, pnl:-h.margin}); dead.push(BY_ID[h.id].name); return false; }
+    return true;
+  });
+  if(dead.length){ const b=$('liqBanner'); b.style.display=''; b.textContent='⚠️ 爆仓：'+dead.join('、')+' 已被强制卖出，本金归零。杠杆越高，爆仓越容易。'; save(); }
+}
+function resetAll(){ if(!confirm('确定重新开始吗？会清空所有持仓和交易记录，现金恢复为 100,000 元。')) return; S={cash:100000, holdings:[], trades:[], realized:0}; save(); render(); }
+function claimRelief(){ S.cash += 100000; S.trades.unshift({time:Date.now(), id:'', name:'系统', act:'救济金', amount:100000, pnl:0}); save(); render(); }
+
+refresh(false);
+setInterval(()=>refresh(false), 60000);
+</script>
+</body>
+</html>
