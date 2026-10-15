@@ -170,8 +170,9 @@ const FX_DEFS = [
 ['JPY','日元',100],['CHF','瑞士法郎',1],['AUD','澳元',1],['CAD','加元',1],['NZD','纽元',1],['SGD','新元',1],
 ];
 const ASSETS = [];
-STOCK_DEFS.forEach(d=>{const t = d[2]==='us' ? 'us'+d[0] : d[2]==='hk' ? 'hk'+d[0] : (d[0][0]==='6' ? 'sh'+d[0] : 'sz'+d[0]); ASSETS.push({id:d[0], name:d[1], code:d[0], type:'stock', mkt:d[2], t:t, lev:2});});
-ETF_DEFS.forEach(d=>{const t = d[2]==='us' ? 'us'+d[0] : (d[0][0]==='6' ? 'sh'+d[0] : 'sz'+d[0]); ASSETS.push({id:d[0], name:d[1], code:d[0], type:d[3], mkt:d[2], t:t, lev:2});});
+const isSH = c=> c[0]==='6'||c[0]==='5'||c[0]==='9'; // 上交所：6开头股票、5开头基金ETF、9开头B股；其余深交所
+STOCK_DEFS.forEach(d=>{const t = d[2]==='us' ? 'us'+d[0] : d[2]==='hk' ? 'hk'+d[0] : (isSH(d[0]) ? 'sh'+d[0] : 'sz'+d[0]); ASSETS.push({id:d[0], name:d[1], code:d[0], type:'stock', mkt:d[2], t:t, lev:2});});
+ETF_DEFS.forEach(d=>{const t = d[2]==='us' ? 'us'+d[0] : (isSH(d[0]) ? 'sh'+d[0] : 'sz'+d[0]); ASSETS.push({id:d[0], name:d[1], code:d[0], type:d[3], mkt:d[2], t:t, lev:2});});
 CRYPTO_DEFS.forEach(d=>ASSETS.push({id:d[1], name:d[2], code:d[1]+'/USDT', type:'crypto', mkt:'crypto', cg:d[0], lev:10}));
 FX_DEFS.forEach(d=>ASSETS.push({id:'FX_'+d[0], name:d[1], code:d[0], type:'fx', mkt:'fx', fx:d[0], unit:d[2], lev:1}));
 const BY_ID = {}; ASSETS.forEach(a=>BY_ID[a.id]=a);
@@ -202,11 +203,13 @@ function loadScript(src, timeoutMs){
 async function loadTencent(){
   const syms = ASSETS.filter(a=>a.t).map(a=>a.t);
   const out={};
+  // BRK.B：腾讯返回的变量名带点 (v_usBRK.B=...)，会被当成属性赋值；先预定义对象，否则脚本执行到这行报错、后面 9 只全丢
+  if(syms.includes('usBRK.B')) window.v_usBRK = {};
   for(let i=0;i<syms.length;i+=30){
     const batch = syms.slice(i,i+30);
     await loadScript('https://qt.gtimg.cn/q='+batch.join(','));
     batch.forEach(sym=>{
-      const raw = window['v_'+sym];
+      const raw = sym==='usBRK.B' ? (window.v_usBRK && window.v_usBRK.B) : window['v_'+sym];
       if(typeof raw==='string' && raw.length>5){
         const f = raw.split('~');
         const price=parseFloat(f[3]), prev=parseFloat(f[4]);
@@ -218,9 +221,14 @@ async function loadTencent(){
 }
 async function loadCrypto(){
   const ids = CRYPTO_DEFS.map(d=>d[0]).concat(['tether']);
-  const url='https://api.coingecko.com/api/v3/simple/price?ids='+ids.join(',')+'&vs_currencies=usd,cny';
-  const r = await fetch(url); if(!r.ok) throw new Error('coingecko '+r.status);
-  return await r.json();
+  const spP = fetch('https://api.coingecko.com/api/v3/simple/price?ids='+ids.join(',')+'&vs_currencies=usd,cny').then(r=>{ if(!r.ok) throw new Error('coingecko '+r.status); return r.json(); });
+  // markets 只取 24h 涨跌幅，失败也不影响价格
+  const mkP = fetch('https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids='+ids.join(',')+'&per_page=25').then(r=> r.ok ? r.json() : []).catch(()=>[]);
+  const sp = await spP;
+  const mk = await mkP;
+  const chg = {};
+  if(Array.isArray(mk)) mk.forEach(m=>{ if(m.id && typeof m.price_change_percentage_24h==='number') chg[m.id]=m.price_change_percentage_24h; });
+  return {sp:sp, chg:chg};
 }
 async function loadFX(){
   const r = await fetch('https://open.er-api.com/v6/latest/USD'); if(!r.ok) throw new Error('fx '+r.status);
@@ -238,8 +246,8 @@ async function refresh(manual){
       cnyPer.JPY = conv('JPY')!==null ? conv('JPY')*100 : null; cnyPer.CHF = conv('CHF'); cnyPer.AUD = conv('AUD');
       cnyPer.CAD = conv('CAD'); cnyPer.NZD = conv('NZD'); cnyPer.SGD = conv('SGD');
     }
-    const usdtCny = cg.tether && cg.tether.cny>0 ? cg.tether.cny : null;
-    const usdtUsd = cg.tether && cg.tether.usd>0 ? cg.tether.usd : 1;
+    const usdtCny = cg.sp.tether && cg.sp.tether.cny>0 ? cg.sp.tether.cny : null;
+    const usdtUsd = cg.sp.tether && cg.sp.tether.usd>0 ? cg.sp.tether.usd : 1;
     if(usdtCny) cnyPer.USDT = usdtCny;
     ASSETS.forEach(a=>{
       if(a.t){
@@ -249,8 +257,8 @@ async function refresh(manual){
           if(rate){ P[a.id]={price:q.price*rate, chg: q.prev? (q.price-q.prev)/q.prev*100 : null}; }
         }
       } else if(a.cg){
-        const c = cg[a.cg];
-        if(c && c.usd>0 && usdtCny){ P[a.id]={price:(c.usd/usdtUsd)*usdtCny, chg:null}; }
+        const c = cg.sp[a.cg];
+        if(c && c.usd>0 && usdtCny){ P[a.id]={price:(c.usd/usdtUsd)*usdtCny, chg: (typeof cg.chg[a.cg]==='number' ? cg.chg[a.cg] : null)}; }
       } else if(a.fx){
         const r = cnyPer[a.fx];
         if(r){ P[a.id]={price:r, chg:null}; }
@@ -319,7 +327,7 @@ function renderHoldings(){
       +'<div class="sellBtns"><button onclick="doSell(\''+h.key+'\',0.25)">卖25%</button><button onclick="doSell(\''+h.key+'\',0.5)">卖50%</button><button onclick="doSell(\''+h.key+'\',0.75)">卖75%</button><button class="danger" onclick="doSell(\''+h.key+'\',1)">全部卖出</button></div></div></div>';
   }).join('');
   $('holdList').innerHTML = html;
-  $('liqWarn').style.display = warn ? '' : 'none'; $('liqWarn').textContent = warn;
+  $('liqWarn').style.display = warn ? 'block' : 'none'; $('liqWarn').textContent = warn;
 }
 function renderTrades(){
   if(!S.trades.length){ $('tradeList').innerHTML='<div style="color:#888">暂无交易记录。</div>'; return; }
@@ -332,7 +340,7 @@ function renderTrades(){
 // ---------- 交易 ----------
 function openBuy(id){
   const a=BY_ID[id]; const pr=P[id]; if(!pr) return;
-  curAsset=a; curLev=1; $('tradePanel').style.display='';
+  curAsset=a; curLev=1; $('tradePanel').style.display='block';
   $('tpTitle').textContent = '买入 · '+a.name+'（'+a.code+'）';
   $('tpInfo').textContent = '现价 '+fmtP(pr.price)+'　杠杆上限 '+a.lev+'倍　'+(a.lev>1 ? '1倍 = 不带杠杆，不会爆仓' : '外汇不带杠杆');
   const levs = a.lev>=10 ? [1,2,5,10] : a.lev>=2 ? [1,2] : [1];
@@ -392,7 +400,7 @@ function checkLiquidation(){
     if(pr.price<=liq){ S.realized += -h.margin; S.trades.unshift({time:Date.now(), id:h.id, name:BY_ID[h.id].name, act:'爆仓', amount:0, pnl:-h.margin}); dead.push(BY_ID[h.id].name); return false; }
     return true;
   });
-  if(dead.length){ const b=$('liqBanner'); b.style.display=''; b.textContent='⚠️ 爆仓：'+dead.join('、')+' 已被强制卖出，本金归零。杠杆越高，爆仓越容易。'; save(); }
+  if(dead.length){ const b=$('liqBanner'); b.style.display='block'; b.textContent='⚠️ 爆仓：'+dead.join('、')+' 已被强制卖出，本金归零。杠杆越高，爆仓越容易。'; save(); }
 }
 function resetAll(){ if(!confirm('确定重新开始吗？会清空所有持仓和交易记录，现金恢复为 100,000 元。')) return; S={cash:100000, holdings:[], trades:[], realized:0}; save(); render(); }
 function claimRelief(){ S.cash += 100000; S.trades.unshift({time:Date.now(), id:'', name:'系统', act:'救济金', amount:100000, pnl:0}); save(); render(); }
