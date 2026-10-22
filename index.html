@@ -43,6 +43,10 @@
   .btn.ghost {
     background: transparent; color: #ffd93b; border: 1.5px solid #ffd93b; font-weight: 500;
   }
+  /* ---- 小游戏区“更多”展开 ---- */
+  .more-games { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-top: 12px; }
+  .more-games.collapsed { display: none; }
+  button.btn { border: none; cursor: pointer; font-family: inherit; }
   /* ---- 蜜罐：前端假密码门 ---- */
   .honey-hidden { display: none !important; }
   .honey-pw {
@@ -204,6 +208,9 @@
     <div class="h-strip">
       <a class="btn" href="lottery.html">🎰 彩票游戏</a>
       <a class="btn" href="poker.html">🃏 德州扑克</a>
+      <button class="btn ghost" id="moreGamesBtn">更多 ▾</button>
+    </div>
+    <div class="more-games collapsed" id="moreGames">
       <a class="btn" href="snake.html">🐍 贪吃蛇</a>
       <a class="btn" href="tetris.html">🧱 俄罗斯方块</a>
       <a class="btn" href="reaction.html">⚡ 反应速度</a>
@@ -430,6 +437,19 @@
       else { v.pause(); }
     });
   });
+})();
+</script>
+<script>
+(function () {
+  // 小游戏区“更多”展开/收起
+  var btn = document.getElementById('moreGamesBtn');
+  var mg = document.getElementById('moreGames');
+  if (btn && mg) {
+    btn.addEventListener('click', function () {
+      var collapsed = mg.classList.toggle('collapsed');
+      btn.textContent = collapsed ? '更多 ▾' : '收起 ▴';
+    });
+  }
 })();
 </script>
 <script>
