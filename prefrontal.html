@@ -67,12 +67,6 @@
     25% { transform: translateX(-5px); } 75% { transform: translateX(5px); }
   }
   .p-hint { text-align: center; color: #7d97a9; font-size: .8rem; margin-top: 12px; }
-  .diff-tabs { display: flex; gap: 8px; justify-content: center; margin-bottom: 16px; flex-wrap: wrap; }
-  .diff-tabs button {
-    border: 1.5px solid rgba(255,255,255,.25); background: transparent; color: #cfe3ef;
-    padding: 8px 14px; border-radius: 8px; cursor: pointer; font-size: .9rem;
-  }
-  .diff-tabs button.active { background: #ffd93b; color: #0f2027; border-color: #ffd93b; font-weight: 700; }
   #over .card h2 { margin-bottom: 10px; }
   #over .score-big { font-size: 2.6rem; color: #ffd93b; font-weight: 800; margin: 8px 0; }
   #over .sub-line { color: #b9cddb; margin-bottom: 6px; line-height: 1.7; }
@@ -102,10 +96,12 @@
   <!-- 菜单 -->
   <div id="menu" class="screen">
     <div class="card">
-      <p class="desc">格子里散着 <strong>1 到 N</strong> 的数字（随机位置），<br>
-      从 <strong>1</strong> 开始按顺序点到最后一个，越快越好！<br>
+      <p class="desc">格子里散着 <strong>01 到 N</strong> 的数字（随机位置），<br>
+      从 <strong>01</strong> 开始按顺序点到最后一个，越快越好！<br>
       点对会闪一下（随后恢复原样，点过的不会变暗——这才是训练），<br>
-      点错不扣分，但浪费时间。成绩按 <strong>平均每个数字用时</strong> 算，难度越高越难找。</p>
+      点错不扣分，但浪费时间。<br>
+      成绩按 <strong>调和分</strong> 算（越低越好）：总用时先减去点击动作时间（每数约 0.25 秒），<br>
+      再除以搜索工作量（格子数的平方）——难度越高越难找，调和后各难度同榜可比。</p>
       <div class="diff-box">
         <label>难度 <b id="diffVal">1</b>　<span class="diff-tag" id="diffTag">6×6 ＝ 36 个数字</span></label>
         <input type="range" id="diffRange" min="1" max="5" step="1" value="1">
@@ -121,14 +117,7 @@
   <div id="records" class="screen hidden">
     <div class="card">
       <h2 style="margin-bottom:12px">🏆 最快纪录</h2>
-      <p class="hint" style="margin-top:0;margin-bottom:12px">各难度独立排名，只跟同难度比</p>
-      <div class="diff-tabs" id="diffTabs">
-        <button data-d="1" class="active">难度 1</button>
-        <button data-d="2">难度 2</button>
-        <button data-d="3">难度 3</button>
-        <button data-d="4">难度 4</button>
-        <button data-d="5">难度 5</button>
-      </div>
+      <p class="hint" style="margin-top:0;margin-bottom:12px">全难度统一排名（调和分越低越好）</p>
       <div id="board"></div>
       <div class="back-row"><button class="btn ghost" id="backBtn">返回</button></div>
     </div>
@@ -176,9 +165,9 @@
     binUrl: BIN_URL,
     localKey: 'wj_board_prefrontal',
     lowerBetter: true,
-    decimals: 3,
-    scoreLabel: '平均每数(秒)',
-    hideDiff: true // 分难度页签展示，难度列多余
+    decimals: 2,
+    scoreLabel: '调和分',
+    hideDiff: false // 统一榜，难度列仅作展示
   });
 
   function $(id) { return document.getElementById(id); }
@@ -204,53 +193,22 @@
   // 数字补零显示（01、02…09，避免 1-9 和两位数并排突兀）
   function pad2(n) { n = String(n); return n.length < 2 ? '0' + n : n; }
 
-  // ---- 排行榜（分难度页签，各难度独立前十） ----
-  var boardDiff = 1;
-  function renderDiffBoard(el, all, remote) {
-    var list = [];
-    for (var i = 0; i < all.length; i++) {
-      var e = all[i];
-      if (!e || typeof e !== 'object') continue;
-      if (parseInt(e.diff, 10) !== boardDiff) continue;
-      var s = Number(e.score);
-      if (!isFinite(s) || s < 0) continue;
-      list.push(e);
-    }
-    list.sort(function (a, b) { return Number(a.score) - Number(b.score); });
-    board.render(el, list.slice(0, 10), remote);
+  // ---- 难度调和 ----
+  // 完成时间 = 点击动作(N×0.25秒) + 找数字(N个数×每数扫描N格)
+  // 调和分 = (总用时 - 0.25×N) ÷ N² × 1000，越低越好
+  // 含义：单位搜索工作量的用时，同一人不同难度得分一致，各难度同榜可比
+  var CLICK_COST = 0.25;
+  function harmonized(totalS, n) {
+    var tAdj = Math.max(0.1, totalS - CLICK_COST * n);
+    return tAdj * 1000 / (n * n);
   }
-  function loadBoard() {
+
+  // ---- 排行榜（全难度统一榜） ----
+  $('recordsBtn').addEventListener('click', function () {
+    show('records');
     var el = $('board');
     el.innerHTML = '<p class="empty">加载中…</p>';
-    // 直接拉全量再按难度过滤（board.load 只返回全局前十，不够分难度用）
-    fetch(BIN_URL, { cache: 'no-store' }).then(function (r) {
-      if (!r.ok) throw new Error('http ' + r.status);
-      return r.json();
-    }).then(function (data) {
-      renderDiffBoard(el, Array.isArray(data) ? data : [], true);
-    }).catch(function () {
-      board.load().then(function (res) { renderDiffBoard(el, res.list, res.remote); });
-    });
-  }
-  function syncTabs() {
-    var btns = $('diffTabs').querySelectorAll('button');
-    for (var i = 0; i < btns.length; i++) {
-      var b = btns[i];
-      b.classList.toggle('active', parseInt(b.getAttribute('data-d'), 10) === boardDiff);
-    }
-  }
-  $('diffTabs').addEventListener('click', function (ev) {
-    var b = ev.target.closest ? ev.target.closest('button') : null;
-    if (!b) return;
-    boardDiff = parseInt(b.getAttribute('data-d'), 10) || 1;
-    syncTabs();
-    loadBoard();
-  });
-  $('recordsBtn').addEventListener('click', function () {
-    boardDiff = diff; // 默认看菜单里选的难度
-    syncTabs();
-    show('records');
-    loadBoard();
+    board.load().then(function (res) { board.render(el, res.list, res.remote); });
   });
   $('backBtn').addEventListener('click', function () { show('menu'); });
 
@@ -324,10 +282,10 @@
     clearInterval(timerInt);
     state = 'over';
     var totalS = (performance.now() - startTime) / 1000;
-    var avg = totalS / total;
-    var avgRound = Math.round(avg * 1000) / 1000;
+    var score = harmonized(totalS, total);
+    var scoreRound = Math.round(score * 100) / 100;
     show('over');
-    $('finalScore').textContent = avgRound.toFixed(3) + ' 秒/个';
+    $('finalScore').textContent = scoreRound.toFixed(2) + ' 调和分';
     $('subLine').innerHTML = '难度 ' + diff + '（' + DIFFS[diff][0] + '×' + DIFFS[diff][1] + '）<br>总用时 ' + totalS.toFixed(1) + ' 秒 · 点错 ' + misses + ' 次';
     $('rankMsg').textContent = '';
     $('rankMsg').className = '';
@@ -339,7 +297,7 @@
       board.saveName(nickInput.value.trim());
       $('submitBtn').disabled = true;
       $('rankMsg').textContent = '提交中…';
-      board.submit({ name: name, score: avgRound, diff: diff }).then(function (r) {
+      board.submit({ name: name, score: scoreRound, diff: diff }).then(function (r) {
         var msg = $('rankMsg');
         if (r.rank >= 0) {
           msg.textContent = r.remote
