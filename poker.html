@@ -32,8 +32,6 @@
   .seat.turn { border-color: #ffd700; box-shadow: 0 0 12px rgba(255,215,0,.7); }
   .seat.folded { opacity: .45; }
   .seat .s-name { font-size: 13px; font-weight: 700; }
-  .seat .s-pers { font-size: 11px; margin-left: 4px; }
-  .pers-阿紧 { color: #7cc7ff; } .pers-阿松 { color: #ffa94d; } .pers-阿跟 { color: #69db7c; } .pers-阿糊涂 { color: #da77f2; }
   .seat .s-cards { display: flex; gap: 3px; justify-content: center; min-height: 38px; margin: 4px 0 2px; }
   .seat .s-chips { font-size: 12px; color: #ffd700; }
   .seat .s-bet { font-size: 12px; color: #4ade80; min-height: 16px; }
@@ -405,7 +403,6 @@
     if (!el) return;
     el.classList.toggle('folded', p.folded);
     el.classList.toggle('turn', currentTurnIdx === i);
-    var persHtml = p.pers ? '<span class="s-pers pers-' + p.pers + '">' + p.pers + '</span>' : '';
     var dealerHtml = (i === buttonIdx) ? '<span class="dealer">D</span>' : '';
     var cardsHtml = '';
     if (p.hole.length === 2) {
@@ -418,7 +415,7 @@
       handHtml = handName(evalBest(p.hole.concat(community)));
     }
     el.innerHTML =
-      '<div><span class="s-name">' + p.name + '</span>' + persHtml + dealerHtml + '</div>' +
+      '<div><span class="s-name">' + p.name + '</span>' + dealerHtml + '</div>' +
       '<div class="s-cards">' + cardsHtml + '</div>' +
       '<div class="s-chips">' + p.chips + ' 筹码</div>' +
       '<div class="s-bet">' + (p.betRound > 0 ? '已下注 ' + p.betRound : '') + '</div>' +
