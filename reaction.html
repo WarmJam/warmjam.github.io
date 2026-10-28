@@ -49,6 +49,7 @@
   .r-grid {
     display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;
     max-width: 430px; margin: 0 auto;
+    touch-action: none;
   }
   @media (max-width: 430px) { .r-grid { grid-template-columns: repeat(3, 1fr); } }
   .r-btn {
@@ -56,7 +57,9 @@
     background: #2fbf71; color: #06281a; font-size: 1.1rem; font-weight: 800;
     font-family: ui-monospace, SFMono-Regular, monospace;
     transition: background .08s, transform .06s;
-    touch-action: manipulation; user-select: none; -webkit-user-select: none;
+    /* 关键：方块区域不交给浏览器做滑动/滚动手势，触碰即算数 */
+    touch-action: none; user-select: none; -webkit-user-select: none;
+    -webkit-touch-callout: none;
   }
   .r-btn.armed { background: #ff5252; color: #fff; transform: scale(1.05); }
   .r-btn.done { background: rgba(255,255,255,.1); color: #9fb3c2; cursor: default; font-size: .8rem; }
@@ -177,6 +180,8 @@
 
   // ---- 游戏 ----
   var grid = $('rGrid'), statusEl = $('rStatus');
+  // 长按不要弹出系统菜单，以免打断一局
+  grid.addEventListener('contextmenu', function (e) { e.preventDefault(); });
   var btns = [], order = [], redIdx = -1, redTime = 0;
   var done = 0, totalMs = 0, fouls = 0, timer = null, state = 'idle';
 
@@ -242,7 +247,12 @@
         b.className = 'r-btn';
         b.textContent = idx + 1;
         b.setAttribute('aria-label', '按钮' + (idx + 1));
-        b.addEventListener('click', function () { onBtn(idx); });
+        // 不用 click：click 要等手指抬起，且手指稍一滑动就被浏览器当成滚动/滑动手势取消。
+        // 改用 pointerdown，手指一碰到方块立刻结算，滑动也不会取消这次触碰。
+        b.addEventListener('pointerdown', function (e) {
+          e.preventDefault();
+          onBtn(idx);
+        }, { passive: false });
         grid.appendChild(b);
         btns.push(b);
       })(i);
