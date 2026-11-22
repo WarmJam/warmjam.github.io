@@ -229,13 +229,13 @@
   async function loadSave() {
     var s = null;
     try { s = JSON.parse(localStorage.getItem('lotterySave') || 'null'); } catch (e) {}
-    if (!s || typeof s.cash !== 'number') {
+    if (!s || !Number.isFinite(s.cash)) {
       s = await idbLoad(); // localStorage 丢了，试试 IndexedDB 备份
-      if (s && typeof s.cash === 'number') {
+      if (s && Number.isFinite(s.cash)) {
         try { localStorage.setItem('lotterySave', JSON.stringify(s)); } catch (e) {}
       }
     }
-    if (!s || typeof s.cash !== 'number') s = defaultSave();
+    if (!s || !Number.isFinite(s.cash)) s = defaultSave();
     if (!Array.isArray(s.claimed)) s.claimed = [];
     if (!Array.isArray(s.tx)) s.tx = [];
     return s;
@@ -389,11 +389,16 @@
       ctx.arc(p.x, p.y, 34, 0, Math.PI * 2);
       ctx.fill();
       scratched++;
-      if (scratched > 40) reveal(idx, div);
+      if (scratched > 18) reveal(idx, div);
     }
-    canvas.addEventListener('pointerdown', function (e) { scratching = true; scratch(e); });
+    canvas.addEventListener('pointerdown', function (e) {
+      scratching = true;
+      if (canvas.setPointerCapture) { try { canvas.setPointerCapture(e.pointerId); } catch (err) {} }
+      scratch(e);
+    });
     canvas.addEventListener('pointermove', scratch);
-    window.addEventListener('pointerup', function () { scratching = false; });
+    canvas.addEventListener('pointerup', function () { scratching = false; });
+    canvas.addEventListener('pointercancel', function () { scratching = false; });
   }
   function reveal(idx, div) {
     var cell = current.cells[idx];
@@ -432,6 +437,9 @@
     document.querySelectorAll('.scratch-cell').forEach(function (div, i) { reveal(i, div); });
   });
   document.getElementById('backBtn').addEventListener('click', function () {
+    if (current && !current.settled) {
+      document.querySelectorAll('.scratch-cell').forEach(function (div, i) { reveal(i, div); });
+    }
     document.getElementById('playPanel').style.display = 'none';
     document.getElementById('scratchView').style.display = 'block';
     document.querySelector('.tabs').style.display = 'flex';

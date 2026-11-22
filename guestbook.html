@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>💬 留言板 · WarmJam 的小站</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -72,9 +72,9 @@
     <h2>写留言</h2>
     <label class="f" for="nick">ID / 昵称（选填）</label>
     <input type="text" id="nick" maxlength="16" placeholder="不填则用设备识别码">
-    <label class="f" for="content">留言内容（最多 30 字）</label>
-    <textarea id="content" rows="2" maxlength="30" placeholder="想说什么？"></textarea>
-    <div class="count"><span id="ccount">0</span>/30</div>
+    <label class="f" for="content">留言内容（最多 80 字）</label>
+    <textarea id="content" rows="3" maxlength="80" placeholder="想说什么？"></textarea>
+    <div class="count"><span id="ccount">0</span>/80</div>
     <label class="f">谁可见？</label>
     <div class="vis">
       <input type="radio" name="vis" id="vPublic" value="public" checked>
@@ -123,7 +123,9 @@
 
   function cleanStr(s, max) {
     s = String(s == null ? '' : s).replace(/[\u0000-\u001f\u007f]/g, '').trim();
-    return s.length > max ? s.slice(0, max) : s;
+    var chars = Array.from(s);
+    if (chars.length > max) s = chars.slice(0, max).join('');
+    return s;
   }
   function fmtTime(d) {
     function p(n) { return (n < 10 ? '0' : '') + n; }
@@ -135,7 +137,7 @@
     for (var i = 0; i < list.length; i++) {
       var e = list[i];
       if (!e || typeof e !== 'object') continue;
-      var content = cleanStr(e.content, 30);
+      var content = cleanStr(e.content, 80);
       if (!content) continue;
       out.push({
         pid: cleanStr(e.pid, 12) || '?',
@@ -213,7 +215,7 @@
   function say(t, cls) { formMsg.textContent = t; formMsg.className = cls || ''; }
 
   submitBtn.addEventListener('click', function () {
-    var content = cleanStr(contentEl.value, 30);
+    var content = cleanStr(contentEl.value, 80);
     if (!content) { say('留言内容不能为空哦', 'err'); return; }
     var name = cleanStr(document.getElementById('nick').value, 16);
     try { localStorage.setItem('wj_name', name); } catch (e) {}
@@ -230,8 +232,10 @@
     submitBtn.textContent = '发送中…';
     say('');
     fetch(bin, { cache: 'no-store' }).then(function (r) {
-      return r.ok ? r.json() : [];
-    }).catch(function () { return []; }).then(function (data) {
+      if (!r.ok) throw new Error('load failed');
+      return r.json();
+    }).then(function (data) {
+      if (!Array.isArray(data)) throw new Error('invalid data');
       var list = sanitize(data);
       list.push(entry);
       if (list.length > MAX_KEEP) list = list.slice(list.length - MAX_KEEP);
@@ -247,7 +251,7 @@
       ccount.textContent = '0';
       if (!isPrivate) load();
     }).catch(function () {
-      say('发送失败，请检查网络后重试。', 'err');
+      say('发送失败（网络异常或读取失败，未覆盖历史留言），请稍后重试。', 'err');
     }).then(function () {
       submitBtn.disabled = false;
       submitBtn.textContent = '发送留言';

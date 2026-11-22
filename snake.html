@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>🐍 贪吃蛇 · WarmJam 的小游戏</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -184,14 +184,16 @@
   function speed() { return 175 - diff * 12; } // Lv1:163ms → Lv10:55ms
 
   function placeFood() {
-    while (true) {
-      var x = Math.floor(Math.random() * N), y = Math.floor(Math.random() * N);
-      var clash = false;
-      for (var i = 0; i < snake.length; i++) {
-        if (snake[i].x === x && snake[i].y === y) { clash = true; break; }
+    var occ = {};
+    for (var i = 0; i < snake.length; i++) occ[snake[i].x + ',' + snake[i].y] = true;
+    var empty = [];
+    for (var y = 0; y < N; y++) {
+      for (var x = 0; x < N; x++) {
+        if (!occ[x + ',' + y]) empty.push({ x: x, y: y });
       }
-      if (!clash) { food = { x: x, y: y }; return; }
     }
+    if (!empty.length) { alive = false; clearInterval(timer); setTimeout(gameOver, 200); return; }
+    food = empty[Math.floor(Math.random() * empty.length)];
   }
 
   function reset() {
@@ -348,7 +350,7 @@
     document.getElementById('finalScore').textContent = score;
     rankMsg.textContent = '';
     rankMsg.className = '';
-    nickInput.value = board.getName() || board.pid;
+    nickInput.value = board.getName();
     submitBtn.disabled = false;
     submitBtn.textContent = '提交成绩';
     show('over');
@@ -357,8 +359,9 @@
   submitBtn.addEventListener('click', function () {
     submitBtn.disabled = true;
     submitBtn.textContent = '提交中…';
-    var name = nickInput.value.trim() || board.pid;
-    board.saveName(name);
+    var custom = nickInput.value.trim();
+    var name = custom || board.pid;
+    if (custom) board.saveName(custom);
     board.submit({ name: name, score: score, diff: diff }).then(function (r) {
       if (r.rank >= 0) {
         rankMsg.textContent = '🎉 恭喜！第 ' + (r.rank + 1) + ' 名，已记入' + (r.remote ? '全站' : '本地') + '排行榜！';
@@ -367,6 +370,10 @@
         rankMsg.textContent = r.remote ? '未进入前十，再接再厉！' : '成绩已保存到本地（网络未连接，未同步全站榜）。';
       }
       submitBtn.textContent = '已提交';
+    }).catch(function () {
+      submitBtn.disabled = false;
+      submitBtn.textContent = '提交成绩';
+      rankMsg.textContent = '提交失败，请重试';
     });
   });
 

@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>🧱 俄罗斯方块 · WarmJam 的小游戏</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -55,7 +55,7 @@
   .side { display: flex; flex-direction: column; gap: 10px; align-items: center; }
   .side .lbl { font-size: .78rem; color: #7d97a9; }
   canvas#next { width: 88px; height: 88px; background: #0a141a; border-radius: 10px; border: 1px solid rgba(255,255,255,.12); }
-  .tbtns { display: grid; grid-template-columns: repeat(5, 60px); gap: 8px; justify-content: center; margin-top: 16px; }
+  .tbtns { display: grid; grid-template-columns: repeat(5, minmax(48px, 60px)); max-width: 100%; gap: 8px; justify-content: center; margin-top: 16px; }
   .tbtns button {
     height: 56px; border-radius: 12px; font-size: 1.3rem;
     background: rgba(255,255,255,.08); color: #f0e6c8; border: 1px solid rgba(255,255,255,.2);
@@ -215,7 +215,9 @@
   }
   function nextType() {
     if (!bag.length) newBag();
-    return bag.pop();
+    var t = bag.pop();
+    if (!bag.length) newBag();
+    return t;
   }
 
   function spawn() {
@@ -465,10 +467,12 @@
     var up = function (e) { e.preventDefault(); if (act === 'down') softDrop = false; };
     b.addEventListener('touchstart', down, { passive: false });
     b.addEventListener('touchend', up, { passive: false });
+    b.addEventListener('touchcancel', up, { passive: false });
     b.addEventListener('mousedown', down);
     b.addEventListener('mouseup', up);
     b.addEventListener('mouseleave', function () { if (act === 'down') softDrop = false; });
   });
+  window.addEventListener('blur', function () { softDrop = false; });
 
   document.getElementById('pauseBtn').addEventListener('click', togglePause);
   document.addEventListener('visibilitychange', function () {
@@ -504,6 +508,10 @@
         rankMsg.textContent = r.remote ? '未进入前十，再接再厉！' : '成绩已保存到本地（网络未连接，未同步全站榜）。';
       }
       submitBtn.textContent = '已提交';
+    }).catch(function () {
+      submitBtn.disabled = false;
+      submitBtn.textContent = '提交成绩';
+      rankMsg.textContent = '提交失败，请重试';
     });
   });
 

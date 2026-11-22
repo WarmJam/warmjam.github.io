@@ -47,9 +47,16 @@
 
   function roundScore(s, decimals) {
     var n = Number(s);
-    if (!isFinite(n) || n < 0) return 0;
+    if (!Number.isFinite(n) || n < 0) return 0;
     var f = Math.pow(10, decimals);
     return Math.round(n * f) / f;
+  }
+  function fetchTimeout(url, opts, ms) {
+    var ctrl = typeof AbortController !== "undefined" ? new AbortController() : null;
+    var tid = ctrl ? setTimeout(function () { ctrl.abort(); }, ms || 8000) : null;
+    var o = Object.assign({}, opts || {});
+    if (ctrl) o.signal = ctrl.signal;
+    return fetch(url, o).finally(function () { if (tid) clearTimeout(tid); });
   }
   function cmpScore(a, b, lowerBetter) {
     return lowerBetter ? (a.score - b.score) : (b.score - a.score);
@@ -65,7 +72,8 @@
       var e = list[i];
       if (!e || typeof e !== 'object') continue;
       var score = Number(e.score);
-      if (!isFinite(score) || score < 0 || score > 99999999) continue;
+      if (!Number.isFinite(score) || score < 0 || score > 99999999) continue;
+      if (lowerBetter && score <= 0) continue;
       out.push({
         pid: cleanStr(e.pid, 12) || '?',
         name: cleanStr(e.name, 16),
@@ -106,9 +114,10 @@
         try { localStorage.setItem('wj_name', cleanStr(n, 16)); } catch (e) {}
       },
 
+      _submitting: false,
       load: function () {
         var self = this;
-        return fetch(self.binUrl, { cache: 'no-store' }).then(function (r) {
+        return fetchTimeout(self.binUrl, { cache: 'no-store' }, 8000).then(function (r) {
           if (!r.ok) throw new Error('http ' + r.status);
           return r.json();
         }).then(function (data) {
@@ -120,6 +129,12 @@
 
       submit: function (entry) {
         var self = this;
+        if (self._submitting) return Promise.reject(new Error('busy'));
+        var rawScore = Number(entry.score);
+        if (!Number.isFinite(rawScore) || rawScore < 0 || (lowerBetter && rawScore <= 0)) {
+          return Promise.reject(new Error('invalid score'));
+        }
+        self._submitting = true;
         var item = {
           pid: self.pid,
           name: cleanStr(entry.name, 16) || self.pid,
@@ -142,11 +157,11 @@
             return { rank: rank, remote: okRemote, list: list };
           };
           if (res.remote) {
-            return fetch(self.binUrl, {
+            return fetchTimeout(self.binUrl, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(list)
-            }).then(function (r) {
+            }, 8000).then(function (r) {
               if (!r.ok) throw new Error('http ' + r.status);
               return finish(true);
             }).catch(function () {
@@ -154,7 +169,7 @@
             });
           }
           return finish(false);
-        });
+        }).finally(function () { self._submitting = false; });
       },
 
       // 渲染榜单（全部用 textContent，防止 XSS）
@@ -203,7 +218,7 @@
         note.className = 'hint';
         note.textContent = remote
           ? '🏆 全站玩家共享榜单 · 只保留历史最高 10 条 · 你的设备识别码：' + api.pid
-          : '⚠️ 排行榜服务器连接失败，当前显示的是本机本地纪录（仅自己可见）。联网后成绩会自动同步到全站榜单。';
+          : '⚠️ 排行榜服务器连接失败，当前显示的是本机离线纪录（仅自己可见）。';
         container.appendChild(note);
       }
     };

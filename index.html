@@ -7,9 +7,10 @@
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
-    font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
     background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
-    color: #f0f4f8; min-height: 100vh;
+    color: #f0f4f8; min-height: 100vh; line-height: 1.6;
+    -webkit-font-smoothing: antialiased; font-variant-numeric: tabular-nums;
   }
   .wrap { max-width: 860px; margin: 0 auto; padding: 48px 24px 80px; }
   header { text-align: center; padding: 40px 0 24px; }
@@ -28,8 +29,15 @@
     border-left: 4px solid #ffd93b;
   }
   .card {
-    background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.1);
-    border-radius: 14px; padding: 22px; margin-bottom: 16px;
+    background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.12);
+    backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.1), 0 8px 28px rgba(0,0,0,.22);
+    border-radius: 16px; padding: 22px; margin-bottom: 16px;
+    transition: border-color .2s ease, background .2s ease;
+  }
+  .card.featured {
+    background: linear-gradient(135deg, rgba(255,217,59,.10), rgba(255,255,255,.05));
+    border-color: rgba(255,217,59,.35);
   }
   .card h3 { font-size: 1.1rem; margin-bottom: 8px; }
   .card p { color: #b9cddb; font-size: .95rem; line-height: 1.7; }
@@ -39,10 +47,19 @@
     background: #ffd93b; padding: 9px 20px; border-radius: 10px; font-size: .92rem;
     transition: transform .15s;
   }
-  .btn:hover { transform: translateY(-2px); }
+  .btn:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(255,217,59,.22); }
+  .btn:active { transform: translateY(0) scale(.98); }
   .btn.ghost {
     background: transparent; color: #ffd93b; border: 1.5px solid #ffd93b; font-weight: 500;
   }
+  .btn.ghost:hover { background: rgba(255,217,59,.12); box-shadow: none; }
+  a:focus-visible, button:focus-visible, input:focus-visible { outline: 2px solid #ffd93b; outline-offset: 3px; }
+  .tech-tags { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+  .tech-tag { font-size: .78rem; color: #9bb4c5; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.1); padding: 3px 10px; border-radius: 999px; }
+  .games-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+  .games-grid .btn { text-align: center; padding: 11px 14px; }
+  .count-tag { font-size: .75rem; opacity: .78; margin-left: 4px; font-family: ui-monospace, SFMono-Regular, monospace; }
+  .hint { color: #9bb4c5; font-size: .85rem; }
   /* ---- 小游戏区“更多”展开 ---- */
   .more-games { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-top: 12px; }
   .more-games.collapsed { display: none; }
@@ -64,7 +81,7 @@
     border-radius: 8px; padding: 8px 6px; font-size: .85rem; color: #ffd93b;
     font-family: ui-monospace, SFMono-Regular, monospace; word-break: break-all;
   }
-  .honey-words span b { color: #7d97a9; font-weight: 400; margin-right: 6px; }
+  .honey-words span b { color: #9bb4c5; font-weight: 400; margin-right: 6px; }
   @keyframes honeyShake {
     0%, 100% { transform: translateX(0); }
     25% { transform: translateX(-6px); } 75% { transform: translateX(6px); }
@@ -76,15 +93,22 @@
   }
   .preview img, .preview object { display: block; width: 100%; height: auto; }
   .links { display: flex; gap: 12px; flex-wrap: wrap; }
-  footer { text-align: center; margin-top: 64px; color: #7d97a9; font-size: .85rem; }
-  footer a { color: #7d97a9; }
+  footer { text-align: center; margin-top: 64px; color: #9bb4c5; font-size: .85rem; }
+  footer a { color: #9bb4c5; }
 
   /* ---- 复古胶片影带 viewer ---- */
   .film-modal {
     position: fixed; inset: 0; z-index: 999; display: none;
     background: rgba(5,5,8,.94); flex-direction: column; justify-content: center;
+    opacity: 0; transition: opacity .22s ease;
   }
-  .film-modal.open { display: flex; }
+  .film-modal.open { display: flex; opacity: 1; }
+  .film-counter {
+    font-family: ui-monospace, SFMono-Regular, monospace; font-variant-numeric: tabular-nums;
+    font-size: .88rem; letter-spacing: 2px; color: #d8c98a;
+    background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.16);
+    padding: 6px 14px; border-radius: 999px; min-width: 82px; text-align: center;
+  }
   .film-strip { background: #161616; border-top: 3px solid #000; border-bottom: 3px solid #000; }
   .sprockets {
     height: 30px; background-color: #0b0b0b;
@@ -102,7 +126,14 @@
     padding: 10px 10px 6px; border: 1px solid #3a3a3a;
     box-shadow: 0 6px 24px rgba(0,0,0,.6);
   }
-  .frame img { display: block; height: 54vh; width: auto; max-width: 82vw; object-fit: contain; background: #000; }
+  .frame img {
+    display: block; height: 54vh; width: auto; max-width: 82vw; min-width: 180px;
+    object-fit: contain; opacity: 0; transition: opacity .3s ease;
+    background: linear-gradient(90deg, #111 25%, #1d1d1d 50%, #111 75%);
+    background-size: 200% 100%; animation: filmShimmer 1.4s infinite;
+  }
+  .frame img.loaded { opacity: 1; animation: none; background: #000; }
+  @keyframes filmShimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
   .frame figcaption { text-align: center; color: #d8c98a; font-size: .85rem; padding: 10px 4px 6px; letter-spacing: 1px; }
   .film-ui { display: flex; align-items: center; justify-content: center; gap: 18px; margin-top: 22px; }
   .film-btn {
@@ -127,7 +158,20 @@
   .h-strip .btn { flex: 0 0 auto; scroll-snap-align: start; }
   .h-strip .card { flex: 0 0 78%; max-width: 360px; margin-bottom: 0; scroll-snap-align: start; }
   @media (min-width: 641px) { .h-strip .card { flex-basis: 320px; } }
+  .live-card .preview { position: relative; }
   .live-card .preview video { display: block; width: 100%; height: auto; }
+  .live-pill {
+    position: absolute; top: 10px; left: 10px; z-index: 2;
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 3px 9px; border-radius: 999px; font-size: .72rem; font-weight: 700;
+    letter-spacing: 1px; color: #fff; background: rgba(15,32,39,.72);
+    backdrop-filter: blur(6px); border: 1px solid rgba(255,255,255,.18);
+  }
+  .live-pill::before {
+    content: ""; width: 6px; height: 6px; border-radius: 50%;
+    background: #ffd93b; box-shadow: 0 0 6px #ffd93b;
+  }
+  #liveSection.paused .live-pill::before { background: #8fa3b0; box-shadow: none; }
   .live-card h3 { margin-top: 14px; }
   /* ---- 标题右侧开关 ---- */
   section h2.with-switch { display: flex; align-items: center; justify-content: space-between; }
@@ -185,17 +229,17 @@
       <div id="footMap"></div>
       <p class="foot-info" id="footInfo">👆 点击金色区域，看看是哪里</p>
       <div class="row" style="justify-content:center;margin-top:10px">
-        <a class="btn ghost" href="#" id="hkBtn">📷 香港</a>
-        <a class="btn ghost" href="#" id="qdBtn">📷 青岛</a>
-        <a class="btn ghost" href="#" id="ahBtn">📷 安徽</a>
-        <a class="btn ghost" href="#" id="jjBtn">📷 济州岛</a>
+        <button type="button" class="btn ghost" id="hkBtn">📷 香港 <span class="count-tag">4</span></button>
+        <button type="button" class="btn ghost" id="qdBtn">📷 青岛 <span class="count-tag">5</span></button>
+        <button type="button" class="btn ghost" id="ahBtn">📷 安徽 <span class="count-tag">10</span></button>
+        <button type="button" class="btn ghost" id="jjBtn">📷 济州岛 <span class="count-tag">28</span></button>
       </div>
     </div>
   </section>
 
   <section>
     <h2>📈 模拟投资</h2>
-    <div class="card">
+    <div class="card featured">
       <h3>100 万虚拟资金，体验真实投资</h3>
       <p>80 只美股 / 港股 / A股、20 种虚拟货币、ETF 与黄金、11 种货币汇率，还有银行定期存款（汇丰 / 华美 / 招商）和杠杆交易。不懂投资也能玩，新手必读都在里面。</p>
       <div class="row" style="justify-content:center">
@@ -226,16 +270,18 @@
         <span class="slider"></span>
       </label>
     </h2>
-    <div class="h-strip">
+    <div class="live-grid">
       <div class="card live-card">
         <div class="preview">
-          <video src="live-disney.mp4" poster="live-disney.jpg" autoplay loop muted playsinline></video>
+          <span class="live-pill">LIVE</span>
+          <video src="live-disney.mp4" poster="live-disney.jpg" preload="metadata" autoplay loop muted playsinline></video>
         </div>
         <h3>🏰 香港迪士尼</h3>
       </div>
       <div class="card live-card">
         <div class="preview">
-          <video src="live-qingdao.mp4" poster="live-qingdao.jpg" autoplay loop muted playsinline></video>
+          <span class="live-pill">LIVE</span>
+          <video src="live-qingdao.mp4" poster="live-qingdao.jpg" preload="metadata" autoplay loop muted playsinline></video>
         </div>
         <h3>🌊 青岛浪花</h3>
       </div>
@@ -270,25 +316,25 @@
 </div>
 
 <!-- 复古胶片 viewer -->
-<div class="film-modal" id="filmModal" role="dialog" aria-label="香港旅行照片">
+<div class="film-modal" id="filmModal" role="dialog" aria-modal="true" aria-label="香港旅行照片">
   <button class="film-close" id="filmClose" aria-label="关闭">✕</button>
   <div class="film-strip">
     <div class="sprockets"></div>
     <div class="frames" id="filmFrames">
       <figure class="frame">
-        <img src="hk-1.jpg" alt="香港迪士尼城堡夜景">
+        <img data-src="hk-1.jpg" loading="lazy" decoding="async" alt="香港迪士尼城堡夜景">
         <figcaption>迪士尼城堡 · 烟花之夜</figcaption>
       </figure>
       <figure class="frame">
-        <img src="hk-2.jpg" alt="小小世界前的冰淇淋">
+        <img data-src="hk-2.jpg" loading="lazy" decoding="async" alt="小小世界前的冰淇淋">
         <figcaption>小小世界前 · 冰淇淋</figcaption>
       </figure>
       <figure class="frame">
-        <img src="hk-3.jpg" alt="雨后迪士尼小径">
+        <img data-src="hk-3.jpg" loading="lazy" decoding="async" alt="雨后迪士尼小径">
         <figcaption>雨后 · 迪士尼小径</figcaption>
       </figure>
       <figure class="frame">
-        <img src="hk-4.jpg" alt="烧腊饭和菠萝包">
+        <img data-src="hk-4.jpg" loading="lazy" decoding="async" alt="烧腊饭和菠萝包">
         <figcaption>烧腊饭 &amp; 菠萝包</figcaption>
       </figure>
     </div>
@@ -296,55 +342,56 @@
   </div>
   <div class="film-ui">
     <button class="film-btn" id="filmPrev" aria-label="上一张">‹</button>
+    <span class="film-counter">01 / 04</span>
     <button class="film-btn" id="filmNext" aria-label="下一张">›</button>
   </div>
-  <div class="film-hint">左右滑动或点击箭头浏览 · 点击空白处 / ✕ 关闭</div>
+  <div class="film-hint">左右滑动 / 方向键切图 · Esc 或点击空白处关闭</div>
 </div>
 
 <!-- 安徽胶片 viewer -->
-<div class="film-modal" id="ahModal" role="dialog" aria-label="安徽旅行照片">
+<div class="film-modal" id="ahModal" role="dialog" aria-modal="true" aria-label="安徽旅行照片">
   <button class="film-close" aria-label="关闭">✕</button>
   <div class="film-strip">
     <div class="sprockets"></div>
     <div class="frames">
       <figure class="frame">
-        <img src="ah-1.jpg" alt="安徽林间小道">
+        <img data-src="ah-1.jpg" loading="lazy" decoding="async" alt="安徽林间小道">
         <figcaption>林荫漫步</figcaption>
       </figure>
       <figure class="frame">
-        <img src="ah-2.jpg" alt="安徽登高望远城市俯瞰">
+        <img data-src="ah-2.jpg" loading="lazy" decoding="async" alt="安徽登高望远城市俯瞰">
         <figcaption>登高望远</figcaption>
       </figure>
       <figure class="frame">
-        <img src="ah-3.jpg" alt="安徽湖边古桥">
+        <img data-src="ah-3.jpg" loading="lazy" decoding="async" alt="安徽湖边古桥">
         <figcaption>古桥映水</figcaption>
       </figure>
       <figure class="frame">
-        <img src="ah-4.jpg" alt="安徽湖畔花坛">
+        <img data-src="ah-4.jpg" loading="lazy" decoding="async" alt="安徽湖畔花坛">
         <figcaption>湖畔花开</figcaption>
       </figure>
       <figure class="frame">
-        <img src="ah-5.jpg" alt="安徽古塔">
+        <img data-src="ah-5.jpg" loading="lazy" decoding="async" alt="安徽古塔">
         <figcaption>古塔凌云</figcaption>
       </figure>
       <figure class="frame">
-        <img src="ah-6.jpg" alt="安徽湖光山色">
+        <img data-src="ah-6.jpg" loading="lazy" decoding="async" alt="安徽湖光山色">
         <figcaption>湖光山色</figcaption>
       </figure>
       <figure class="frame">
-        <img src="ah-7.jpg" alt="安徽垂柳湖畔">
+        <img data-src="ah-7.jpg" loading="lazy" decoding="async" alt="安徽垂柳湖畔">
         <figcaption>垂柳依依</figcaption>
       </figure>
       <figure class="frame">
-        <img src="ah-8.jpg" alt="安徽城市天际线倒影">
+        <img data-src="ah-8.jpg" loading="lazy" decoding="async" alt="安徽城市天际线倒影">
         <figcaption>水天一色</figcaption>
       </figure>
       <figure class="frame">
-        <img src="ah-9.jpg" alt="安徽芦苇秋色">
+        <img data-src="ah-9.jpg" loading="lazy" decoding="async" alt="安徽芦苇秋色">
         <figcaption>芦花秋色</figcaption>
       </figure>
       <figure class="frame">
-        <img src="ah-10.jpg" alt="安徽草原风光">
+        <img data-src="ah-10.jpg" loading="lazy" decoding="async" alt="安徽草原风光">
         <figcaption>草原风光</figcaption>
       </figure>
     </div>
@@ -352,35 +399,36 @@
   </div>
   <div class="film-ui">
     <button class="film-btn" aria-label="上一张">‹</button>
+    <span class="film-counter">01 / 01</span>
     <button class="film-btn" aria-label="下一张">›</button>
   </div>
-  <div class="film-hint">左右滑动或点击箭头浏览 · 点击空白处 / ✕ 关闭</div>
+  <div class="film-hint">左右滑动 / 方向键切图 · Esc 或点击空白处关闭</div>
 </div>
 
 <!-- 青岛胶片 viewer -->
-<div class="film-modal" id="qdModal" role="dialog" aria-label="青岛旅行照片">
+<div class="film-modal" id="qdModal" role="dialog" aria-modal="true" aria-label="青岛旅行照片">
   <button class="film-close" aria-label="关闭">✕</button>
   <div class="film-strip">
     <div class="sprockets"></div>
     <div class="frames">
       <figure class="frame">
-        <img src="qd-1.jpg" alt="青岛海上日出">
+        <img data-src="qd-1.jpg" loading="lazy" decoding="async" alt="青岛海上日出">
         <figcaption>海上日出</figcaption>
       </figure>
       <figure class="frame">
-        <img src="qd-2.jpg" alt="海浪拍打礁石">
+        <img data-src="qd-2.jpg" loading="lazy" decoding="async" alt="海浪拍打礁石">
         <figcaption>惊涛拍岸</figcaption>
       </figure>
       <figure class="frame">
-        <img src="qd-3.jpg" alt="海边的黄色野花">
+        <img data-src="qd-3.jpg" loading="lazy" decoding="async" alt="海边的黄色野花">
         <figcaption>花海听涛</figcaption>
       </figure>
       <figure class="frame">
-        <img src="qd-4.jpg" alt="礁石边留影">
+        <img data-src="qd-4.jpg" loading="lazy" decoding="async" alt="礁石边留影">
         <figcaption>礁石漫步</figcaption>
       </figure>
       <figure class="frame">
-        <img src="qd-5.jpg" alt="青岛沙滩">
+        <img data-src="qd-5.jpg" loading="lazy" decoding="async" alt="青岛沙滩">
         <figcaption>沙滩悠闲</figcaption>
       </figure>
     </div>
@@ -388,128 +436,129 @@
   </div>
   <div class="film-ui">
     <button class="film-btn" aria-label="上一张">‹</button>
+    <span class="film-counter">01 / 01</span>
     <button class="film-btn" aria-label="下一张">›</button>
   </div>
-  <div class="film-hint">左右滑动或点击箭头浏览 · 点击空白处 / ✕ 关闭</div>
+  <div class="film-hint">左右滑动 / 方向键切图 · Esc 或点击空白处关闭</div>
 </div>
 
 
 <!-- 济州岛胶片 viewer -->
-<div class="film-modal" id="jjModal" role="dialog" aria-label="济州岛旅行照片">
+<div class="film-modal" id="jjModal" role="dialog" aria-modal="true" aria-label="济州岛旅行照片">
   <button class="film-close" aria-label="关闭">✕</button>
   <div class="film-strip">
     <div class="sprockets"></div>
     <div class="frames">
       <figure class="frame">
-        <img src="jj-1.jpg" alt="济州 HELLO JEJU 绿植墙">
+        <img data-src="jj-1.jpg" loading="lazy" decoding="async" alt="济州 HELLO JEJU 绿植墙">
         <figcaption>你好，济州</figcaption>
       </figure>
       <figure class="frame">
-        <img src="jj-2.jpg" alt="济州海边咖啡馆与沙滩">
+        <img data-src="jj-2.jpg" loading="lazy" decoding="async" alt="济州海边咖啡馆与沙滩">
         <figcaption>沙滩咖啡馆</figcaption>
       </figure>
       <figure class="frame">
-        <img src="jj-3.jpg" alt="济州城山日出峰海边">
+        <img data-src="jj-3.jpg" loading="lazy" decoding="async" alt="济州城山日出峰海边">
         <figcaption>城山日出峰</figcaption>
       </figure>
       <figure class="frame">
-        <img src="jj-4.jpg" alt="济州城山登山步道">
+        <img data-src="jj-4.jpg" loading="lazy" decoding="async" alt="济州城山登山步道">
         <figcaption>登山步道</figcaption>
       </figure>
       <figure class="frame">
-        <img src="jj-5.jpg" alt="济州山顶俯瞰城镇与海">
+        <img data-src="jj-5.jpg" loading="lazy" decoding="async" alt="济州山顶俯瞰城镇与海">
         <figcaption>山顶俯瞰</figcaption>
       </figure>
       <figure class="frame">
-        <img src="jj-6.jpg" alt="济州山顶远眺">
+        <img data-src="jj-6.jpg" loading="lazy" decoding="async" alt="济州山顶远眺">
         <figcaption>山顶远眺</figcaption>
       </figure>
       <figure class="frame">
-        <img src="jj-7.jpg" alt="济州悬崖海湾与小船">
+        <img data-src="jj-7.jpg" loading="lazy" decoding="async" alt="济州悬崖海湾与小船">
         <figcaption>悬崖海湾</figcaption>
       </figure>
       <figure class="frame">
-        <img src="jj-8.jpg" alt="济州黑沙滩">
+        <img data-src="jj-8.jpg" loading="lazy" decoding="async" alt="济州黑沙滩">
         <figcaption>黑沙滩</figcaption>
       </figure>
       <figure class="frame">
-        <img src="jj-9.jpg" alt="济州黑沙滩海浪">
+        <img data-src="jj-9.jpg" loading="lazy" decoding="async" alt="济州黑沙滩海浪">
         <figcaption>黑沙滩 · 海浪</figcaption>
       </figure>
       <figure class="frame">
-        <img src="jj-10.jpg" alt="济州海边手中的贝壳">
+        <img data-src="jj-10.jpg" loading="lazy" decoding="async" alt="济州海边手中的贝壳">
         <figcaption>海边拾贝</figcaption>
       </figure>
       <figure class="frame">
-        <img src="jj-11.jpg" alt="济州礁石海岸">
+        <img data-src="jj-11.jpg" loading="lazy" decoding="async" alt="济州礁石海岸">
         <figcaption>礁石海岸</figcaption>
       </figure>
       <figure class="frame">
-        <img src="jj-12.jpg" alt="济州烤肉">
+        <img data-src="jj-12.jpg" loading="lazy" decoding="async" alt="济州烤肉">
         <figcaption>烤肉</figcaption>
       </figure>
       <figure class="frame">
-        <img src="jj-13.jpg" alt="济州林间公路">
+        <img data-src="jj-13.jpg" loading="lazy" decoding="async" alt="济州林间公路">
         <figcaption>林间公路</figcaption>
       </figure>
       <figure class="frame">
-        <img src="jj-14.jpg" alt="济州济州市区街景">
+        <img data-src="jj-14.jpg" loading="lazy" decoding="async" alt="济州济州市区街景">
         <figcaption>市区街景</figcaption>
       </figure>
       <figure class="frame">
-        <img src="jj-15.jpg" alt="济州黄昏街巷">
+        <img data-src="jj-15.jpg" loading="lazy" decoding="async" alt="济州黄昏街巷">
         <figcaption>黄昏街巷</figcaption>
       </figure>
       <figure class="frame">
-        <img src="jj-16.jpg" alt="济州夜晚街头店铺">
+        <img data-src="jj-16.jpg" loading="lazy" decoding="async" alt="济州夜晚街头店铺">
         <figcaption>夜市街头</figcaption>
       </figure>
       <figure class="frame">
-        <img src="jj-17.jpg" alt="济州夜色楼宇">
+        <img data-src="jj-17.jpg" loading="lazy" decoding="async" alt="济州夜色楼宇">
         <figcaption>夜色楼宇</figcaption>
       </figure>
       <figure class="frame">
-        <img src="jj-18.jpg" alt="济州草原山丘">
+        <img data-src="jj-18.jpg" loading="lazy" decoding="async" alt="济州草原山丘">
         <figcaption>草原山丘</figcaption>
       </figure>
       <figure class="frame">
-        <img src="jj-19.jpg" alt="济州芒草山坡">
+        <img data-src="jj-19.jpg" loading="lazy" decoding="async" alt="济州芒草山坡">
         <figcaption>芒草山坡</figcaption>
       </figure>
       <figure class="frame">
-        <img src="jj-20.jpg" alt="济州山丘步道全景">
+        <img data-src="jj-20.jpg" loading="lazy" decoding="async" alt="济州山丘步道全景">
         <figcaption>山丘全景</figcaption>
       </figure>
       <figure class="frame">
-        <img src="jj-21.jpg" alt="济州海上落日">
+        <img data-src="jj-21.jpg" loading="lazy" decoding="async" alt="济州海上落日">
         <figcaption>海上落日</figcaption>
       </figure>
       <figure class="frame">
-        <img src="jj-22.jpg" alt="济州灯塔与海上风车">
+        <img data-src="jj-22.jpg" loading="lazy" decoding="async" alt="济州灯塔与海上风车">
         <figcaption>灯塔与风车</figcaption>
       </figure>
       <figure class="frame">
-        <img src="jj-23.jpg" alt="济州大风车">
+        <img data-src="jj-23.jpg" loading="lazy" decoding="async" alt="济州大风车">
         <figcaption>大风车</figcaption>
       </figure>
       <figure class="frame">
-        <img src="jj-24.jpg" alt="济州灯塔与风车群">
+        <img data-src="jj-24.jpg" loading="lazy" decoding="async" alt="济州灯塔与风车群">
         <figcaption>灯塔 · 风车群</figcaption>
       </figure>
       <figure class="frame">
-        <img src="jj-25.jpg" alt="济州海上风车栈道">
+        <img data-src="jj-25.jpg" loading="lazy" decoding="async" alt="济州海上风车栈道">
         <figcaption>海上风车栈道</figcaption>
       </figure>
       <figure class="frame">
-        <img src="jj-26.jpg" alt="济州礁石晚潮">
+        <img data-src="jj-26.jpg" loading="lazy" decoding="async" alt="济州礁石晚潮">
         <figcaption>礁石 · 晚潮</figcaption>
       </figure>
       <figure class="frame">
-        <img src="jj-27.jpg" alt="济州海浪拍打礁石">
+        <img data-src="jj-27.jpg" loading="lazy" decoding="async" alt="济州海浪拍打礁石">
         <figcaption>惊涛拍岸</figcaption>
       </figure>
       <figure class="frame">
-        <img src="jj-28.jpg" alt="济州咖啡与甜点">
+        <img data-src="jj-28.jpg" loading="lazy" decoding="async" alt="济州咖啡与甜点">
         <figcaption>咖啡与甜点</figcaption>
       </figure>
     </div>
@@ -517,40 +566,86 @@
   </div>
   <div class="film-ui">
     <button class="film-btn" aria-label="上一张">‹</button>
+    <span class="film-counter">01 / 01</span>
     <button class="film-btn" aria-label="下一张">›</button>
   </div>
-  <div class="film-hint">左右滑动或点击箭头浏览 · 点击空白处 / ✕ 关闭</div>
+  <div class="film-hint">左右滑动 / 方向键切图 · Esc 或点击空白处关闭</div>
 </div>
 
 <script>
 (function () {
+  var activeModal = null;
+  function pad(n) { return n < 10 ? '0' + n : '' + n; }
+
+  function loadModalImgs(modal) {
+    modal.querySelectorAll('img[data-src]').forEach(function (img) {
+      if (!img.getAttribute('src')) {
+        img.setAttribute('src', img.getAttribute('data-src'));
+      }
+      if (img.complete && img.naturalWidth > 0) img.classList.add('loaded');
+      else img.addEventListener('load', function () { img.classList.add('loaded'); }, { once: true });
+    });
+  }
+
   function wireViewer(btnId, modalId) {
     var modal = document.getElementById(modalId);
     var frames = modal.querySelector('.frames');
+    var list = modal.querySelectorAll('.frame');
     var navBtns = modal.querySelectorAll('.film-btn');
+    var counter = modal.querySelector('.film-counter');
+
+    function updateCounter() {
+      if (!counter || !list.length) return;
+      var center = frames.scrollLeft + frames.clientWidth / 2;
+      var idx = 0, best = Infinity;
+      list.forEach(function (f, i) {
+        var dist = Math.abs(f.offsetLeft + f.offsetWidth / 2 - center);
+        if (dist < best) { best = dist; idx = i; }
+      });
+      counter.textContent = pad(idx + 1) + ' / ' + pad(list.length);
+    }
+
+    var raf = 0;
+    frames.addEventListener('scroll', function () {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(updateCounter);
+    }, { passive: true });
+
     document.getElementById(btnId).addEventListener('click', function (e) {
       e.preventDefault();
+      loadModalImgs(modal);
+      activeModal = modal;
       modal.classList.add('open');
       document.body.style.overflow = 'hidden';
+      frames.scrollLeft = 0;
+      updateCounter();
     });
+
     function close() {
       modal.classList.remove('open');
       document.body.style.overflow = '';
+      if (activeModal === modal) activeModal = null;
     }
     modal.querySelector('.film-close').addEventListener('click', close);
     modal.addEventListener('click', function (e) { if (e.target === modal) close(); });
-    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') close(); });
+
     function step() {
       var f = frames.querySelector('.frame');
       return f ? f.offsetWidth + 22 : 320;
     }
-    navBtns[0].addEventListener('click', function () {
-      frames.scrollBy({ left: -step(), behavior: 'smooth' });
-    });
-    navBtns[1].addEventListener('click', function () {
-      frames.scrollBy({ left: step(), behavior: 'smooth' });
-    });
+    navBtns[0].addEventListener('click', function () { frames.scrollBy({ left: -step(), behavior: 'smooth' }); });
+    navBtns[1].addEventListener('click', function () { frames.scrollBy({ left: step(), behavior: 'smooth' }); });
+    modal._nav = function (dir) { frames.scrollBy({ left: dir * step(), behavior: 'smooth' }); };
+    modal._close = close;
   }
+
+  document.addEventListener('keydown', function (e) {
+    if (!activeModal) return;
+    if (e.key === 'Escape') activeModal._close();
+    else if (e.key === 'ArrowLeft') activeModal._nav(-1);
+    else if (e.key === 'ArrowRight') activeModal._nav(1);
+  });
+
   wireViewer('hkBtn', 'filmModal');
   wireViewer('qdBtn', 'qdModal');
   wireViewer('ahBtn', 'ahModal');
@@ -559,14 +654,32 @@
 </script>
 <script>
 (function () {
-  // 动态瞬间：标题右侧开关，默认开；关了就把视频定格在当前帧
+  var sec = document.getElementById('liveSection');
   var toggle = document.getElementById('liveToggle');
   var vids = document.querySelectorAll('#liveSection video');
+  var pills = document.querySelectorAll('#liveSection .live-pill');
+  function syncUI(playing) {
+    if (sec) sec.classList.toggle('paused', !playing);
+    pills.forEach(function (el) { el.textContent = playing ? 'LIVE' : 'PAUSED'; });
+  }
   toggle.addEventListener('change', function () {
+    syncUI(toggle.checked);
     vids.forEach(function (v) {
-      if (toggle.checked) { var p = v.play(); if (p && p.catch) p.catch(function () {}); }
-      else { v.pause(); }
+      if (toggle.checked) {
+        var p = v.play();
+        if (p && p.catch) p.catch(function () { toggle.checked = false; syncUI(false); });
+      } else { v.pause(); }
     });
+  });
+  vids.forEach(function (v) {
+    v.addEventListener('play', function () { syncUI(true); });
+    v.addEventListener('pause', function () {
+      var anyPlaying = Array.prototype.some.call(vids, function (x) { return !x.paused; });
+      if (!anyPlaying) { toggle.checked = false; syncUI(false); }
+    });
+  });
+  document.addEventListener('visibilitychange', function () {
+    if (document.hidden) vids.forEach(function (v) { v.pause(); });
   });
 })();
 </script>
@@ -607,7 +720,7 @@
     if (/iPhone|iPad|iPod/.test(ua)) return 'iOS';
     if (/Android/.test(ua)) return 'Android';
     if (/Windows/.test(ua)) return 'Windows 电脑';
-    if (/Macintosh/.test(ua)) return 'Mac 电脑';
+    if (/Macintosh|Mac OS X/.test(ua)) return 'Mac 电脑';
     if (/Linux/.test(ua)) return 'Linux 电脑';
     return '未知设备';
   }
@@ -724,7 +837,16 @@
   var files = ['maps/china.json', 'maps/pref-410000.json', 'maps/pref-320000.json',
                'maps/pref-370000.json', 'maps/pref-440000.json', 'maps/pref-340000.json'];
   Promise.all(files.map(function (f) {
-    return fetch(f).then(function (r) { if (!r.ok) throw new Error(f); return r.json(); });
+    var ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    var tid = ctrl ? setTimeout(function () { ctrl.abort(); }, 8000) : null;
+    return fetch(f, ctrl ? { signal: ctrl.signal } : {}).then(function (r) {
+      if (tid) clearTimeout(tid);
+      if (!r.ok) throw new Error(f);
+      return r.json();
+    }, function (err) {
+      if (tid) clearTimeout(tid);
+      throw err;
+    });
   })).then(function (all) {
     // 裁掉台湾以南的南海群岛：过滤无名岛礁要素，并把视图南界收到 18°N（保留海南岛、台湾）
     all[0].features = all[0].features.filter(function (ft) { return ft.properties.name !== ''; });
@@ -743,7 +865,7 @@
       return { name: ft.properties.name, value: [c[0], c[1]] };
     });
 
-    statsEl.innerHTML = '🗺️ 足迹遍布 <b>' + distinctProvs() + '</b> 个省级地区 · 点亮 <b>' + VISITED.length + '</b> 座城市';
+    statsEl.innerHTML = '🗺️ 足迹遍布 <b>' + distinctProvs() + '</b> 个省级地区 · 点亮 <b>' + VISITED.length + '</b> 座城市（含海外：韩国济州岛）';
 
     var chart = echarts.init(mapEl);
     chart.setOption({

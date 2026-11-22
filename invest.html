@@ -249,10 +249,11 @@ function idbGet(){
 function save(){ try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){} idbPut(S); }
 function normalizeSave(){
   if(!S || typeof S!=='object') S = {};
-  if(typeof S.cash!=='number') S.cash = 1000000;
+  if(!Number.isFinite(S.cash) || S.cash < 0) S.cash = 1000000;
   if(!Array.isArray(S.holdings)) S.holdings=[];
+  S.holdings = S.holdings.filter(h=>h && typeof h==='object' && BY_ID[h.id] && Number.isFinite(h.qty) && h.qty>0 && Number.isFinite(h.margin) && h.margin>=0 && Number.isFinite(h.entry) && h.entry>0);
   if(!Array.isArray(S.trades)) S.trades=[];
-  if(typeof S.realized!=='number') S.realized=0;
+  if(!Number.isFinite(S.realized)) S.realized=0;
   if(typeof S.username!=='string') S.username='';
   if(typeof S.device!=='string' || !S.device) S.device=genDevice();
   if(!Array.isArray(S.claimed)) S.claimed=[];
@@ -290,7 +291,7 @@ function importSave(inp){
   rd.onload = ()=>{
     try{
       const j = JSON.parse(rd.result);
-      if(typeof j.cash!=='number' || !Array.isArray(j.holdings)) throw new Error('bad');
+      if(!Number.isFinite(j.cash) || j.cash<0 || !Array.isArray(j.holdings)) throw new Error('bad');
       S = j; normalizeSave(); $('userName').value = S.username;
       save(); render(); alert('存档已导入');
     }catch(e){ alert('导入失败：文件格式不对'); }
@@ -300,6 +301,7 @@ function importSave(inp){
 let P = {}; // id -> {price(CNY), chg}
 let curTab='stock', curMkt='all', curAsset=null, curLev=1;
 const $ = id=>document.getElementById(id);
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 const fmt = n=> (n<0?'-':'') + '¥' + Math.abs(n).toLocaleString('zh-CN',{minimumFractionDigits:2, maximumFractionDigits:2});
 const fmtP = n=> n>=1000 ? '¥'+n.toLocaleString('zh-CN',{minimumFractionDigits:2, maximumFractionDigits:2}) : '¥'+n.toFixed(n>=100?2:4);
 const pctCls = c=> c>0?'up':c<0?'down':'flat';
@@ -368,12 +370,15 @@ async function refresh(manual){
     const fxj = results[2].status==='fulfilled' ? results[2].value : {rates:{}};
     if(results.every(r=>r.status==='rejected')) throw new Error('行情接口全部失败');
     const rates = fxj.rates||{};
-    const cnyPer = {}; // 每 1 单位外币 = 多少人民币
+    let cachedFx = {};
+    try{ cachedFx = JSON.parse(localStorage.getItem('invest_fx_cache')||'{}'); }catch(e){}
+    const cnyPer = Object.assign({USD:7.2,HKD:0.92,EUR:7.8,GBP:9.1,JPY:4.8,CHF:8.1,AUD:4.7,CAD:5.2,NZD:4.3,SGD:5.4}, cachedFx);
     if(rates.CNY>0){
       const conv = c=> rates[c]>0 ? rates.CNY/rates[c] : null;
-      cnyPer.USD = rates.CNY; cnyPer.HKD = conv('HKD'); cnyPer.EUR = conv('EUR'); cnyPer.GBP = conv('GBP');
-      cnyPer.JPY = conv('JPY')!==null ? conv('JPY')*100 : null; cnyPer.CHF = conv('CHF'); cnyPer.AUD = conv('AUD');
-      cnyPer.CAD = conv('CAD'); cnyPer.NZD = conv('NZD'); cnyPer.SGD = conv('SGD');
+      cnyPer.USD = rates.CNY; cnyPer.HKD = conv('HKD')||cnyPer.HKD; cnyPer.EUR = conv('EUR')||cnyPer.EUR; cnyPer.GBP = conv('GBP')||cnyPer.GBP;
+      cnyPer.JPY = conv('JPY')!==null ? conv('JPY')*100 : cnyPer.JPY; cnyPer.CHF = conv('CHF')||cnyPer.CHF; cnyPer.AUD = conv('AUD')||cnyPer.AUD;
+      cnyPer.CAD = conv('CAD')||cnyPer.CAD; cnyPer.NZD = conv('NZD')||cnyPer.NZD; cnyPer.SGD = conv('SGD')||cnyPer.SGD;
+      try{ localStorage.setItem('invest_fx_cache', JSON.stringify(cnyPer)); }catch(e){}
     }
     const usdtCny = cg.sp.tether && cg.sp.tether.cny>0 ? cg.sp.tether.cny : null;
     const usdtUsd = cg.sp.tether && cg.sp.tether.usd>0 ? cg.sp.tether.usd : 1;
@@ -453,11 +458,13 @@ function renderHoldings(){
     const pnlPct = h.margin>0 ? pnl/h.margin*100 : 0;
     const liq = h.entry*(1-1/h.lev);
     const near = h.lev>1 && p!==null && p < (h.entry+liq)/2; // 跌到成本与爆仓价的中点（亏掉一半本金）才警告，避免 10 倍刚买就误报
+    if(!a) return '';
     if(near) warn += '⚠️ '+a.name+'（'+h.lev+'倍）接近爆仓线 '+fmtP(liq)+'，现价 '+fmtP(p)+'。 ';
     const prTxt = p===null ? '—' : fmtP(p);
-    return '<div class="row hold"><div class="nm"><b>'+a.name+'</b><small>'+a.code+' · '+h.qty.toFixed(4)+' 份 · '+h.lev+'倍杠杆 · 成本 '+fmtP(h.entry)+' · 爆仓价 '+(h.lev>1?fmtP(liq):'无')+'</small></div>'
+    const hk = esc(h.key);
+    return '<div class="row hold"><div class="nm"><b>'+esc(a.name)+'</b><small>'+esc(a.code)+' · '+h.qty.toFixed(4)+' 份 · '+h.lev+'倍杠杆 · 成本 '+fmtP(h.entry)+' · 爆仓价 '+(h.lev>1?fmtP(liq):'无')+'</small></div>'
       +'<div class="pr"><div class="p '+(pnl>0?'up':pnl<0?'down':'flat')+'">'+(pnl>=0?'+':'')+fmt(pnl)+'</div><div class="c '+(pnlPct>0?'up':pnlPct<0?'down':'flat')+'">'+(pnlPct>=0?'+':'')+pnlPct.toFixed(2)+'% · 现价 '+prTxt+'</div>'
-      +'<div class="sellBtns"><button onclick="doSell(\''+h.key+'\',0.25)">卖25%</button><button onclick="doSell(\''+h.key+'\',0.5)">卖50%</button><button onclick="doSell(\''+h.key+'\',0.75)">卖75%</button><button class="danger" onclick="doSell(\''+h.key+'\',1)">全部卖出</button></div></div></div>';
+      +'<div class="sellBtns"><button onclick="doSell(\''+hk+'\',0.25)">卖25%</button><button onclick="doSell(\''+hk+'\',0.5)">卖50%</button><button onclick="doSell(\''+hk+'\',0.75)">卖75%</button><button class="danger" onclick="doSell(\''+hk+'\',1)">全部卖出</button></div></div></div>';
   }).join('');
   $('holdList').innerHTML = html;
   $('liqWarn').style.display = warn ? 'block' : 'none'; $('liqWarn').textContent = warn;
@@ -466,7 +473,7 @@ function renderTrades(){
   if(!S.trades.length){ $('tradeList').innerHTML='<div style="color:#888">暂无交易记录。</div>'; return; }
   $('tradeList').innerHTML = S.trades.slice(0,30).map(t=>{
     const cls = t.act==='爆仓' ? 'down' : t.pnl>0 ? 'up' : t.pnl<0 ? 'down' : 'flat';
-    return '<div class="t"><span class="time">'+new Date(t.time).toLocaleString('zh-CN')+'</span>　'+t.name+'　<b>'+t.act+'</b>　金额 '+fmt(t.amount)+(t.act!=='买入' ? '　盈亏 <span class="'+cls+'">'+(t.pnl>=0?'+':'')+fmt(t.pnl)+'</span>' : '')+'</div>';
+    return '<div class="t"><span class="time">'+new Date(t.time).toLocaleString('zh-CN')+'</span>　'+esc(t.name)+'　<b>'+esc(t.act)+'</b>　金额 '+fmt(t.amount)+(t.act!=='买入' ? '　盈亏 <span class="'+cls+'">'+(t.pnl>=0?'+':'')+fmt(t.pnl)+'</span>' : '')+'</div>';
   }).join('');
 }
 
@@ -619,12 +626,14 @@ function doBuy(){
   save(); hidePanel(); render();
 }
 function doSell(key, frac){
+  checkLiquidation();
   const h = S.holdings.find(x=>x.key===key); if(!h) return;
   const a=BY_ID[h.id]; const pr=P[h.id]; if(!pr){ alert('行情还没加载好，稍等再试'); return; }
   const sellQty = h.qty*frac;
   const marginBack = h.margin*frac;
   const pnl = (pr.price-h.entry)*sellQty;
-  S.cash += marginBack + pnl;
+  const payout = Math.max(0, marginBack + pnl);
+  S.cash += payout;
   S.realized += pnl;
   S.trades.unshift({time:Date.now(), id:h.id, name:a.name, act:'卖出', amount:marginBack+pnl, pnl:pnl});
   S.trades = S.trades.slice(0,100);

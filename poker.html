@@ -57,6 +57,7 @@
     .card { width: 30px; height: 42px; font-size: 13px; }
     .card.lg { width: 40px; height: 56px; font-size: 17px; }
   }
+  @media (max-width: 480px) { .seat { width: 80px !important; } .comm-cards { gap: 3px !important; } .comm-cards .card { width: 28px !important; height: 40px !important; } }
 </style>
 </head>
 <body>
@@ -122,7 +123,7 @@
   function loadSave() {
     try {
       var s = JSON.parse(localStorage.getItem('pokerSave') || 'null');
-      if (s && typeof s.chips === 'number') return s;
+      if (s && Number.isFinite(s.chips)) return s;
     } catch (e) {}
     return { chips: START_CHIPS, hands: 0, wins: 0 };
   }

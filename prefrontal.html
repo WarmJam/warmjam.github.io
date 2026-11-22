@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>🧠 前额叶训练 · WarmJam 的小游戏</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -47,15 +47,17 @@
     min-height: 1.8em; margin-bottom: 10px;
   }
   .p-grid {
-    display: grid; gap: 8px; max-width: 600px; margin: 0 auto;
+    display: grid; gap: 8px; max-width: 600px; margin: 0 auto; touch-action: none;
   }
+  .p-grid.dense { gap: 4px; }
+  .p-grid.dense .p-cell { min-height: 34px; font-size: .85rem; border-radius: 7px; }
   .p-cell {
     aspect-ratio: 1/1; border: none; border-radius: 10px; cursor: pointer;
     background: rgba(255,255,255,.12); color: #f0f4f8;
     font-size: 1rem; font-weight: 700;
     font-family: ui-monospace, SFMono-Regular, monospace;
     transition: background .15s, transform .15s;
-    touch-action: manipulation; user-select: none; -webkit-user-select: none;
+    touch-action: none; user-select: none; -webkit-user-select: none;
     min-height: 44px;
   }
   /* 点对：闪一下然后恢复（不暗掉，保持训练难度） */
@@ -261,13 +263,15 @@
     var nums = shuffle(Array.apply(null, { length: total }).map(function (_, i) { return i + 1; }));
     grid.innerHTML = '';
     grid.style.gridTemplateColumns = 'repeat(' + c + ', 1fr)';
+    grid.classList.toggle('dense', diff >= 4);
     cells = [];
     nums.forEach(function (v) {
       var b = document.createElement('button');
       b.className = 'p-cell';
       b.textContent = pad2(v);
       b.setAttribute('aria-label', '数字' + pad2(v));
-      b.addEventListener('click', function () { onCell(v, b); });
+      b.addEventListener('pointerdown', function (e) { e.preventDefault(); onCell(v, b); });
+      b.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onCell(v, b); } });
       grid.appendChild(b);
       cells.push(b);
     });
@@ -308,6 +312,9 @@
           msg.textContent = r.remote ? '未进入前十，继续加油！' : '提交失败，已记入本机';
           msg.className = '';
         }
+      }).catch(function () {
+        $('submitBtn').disabled = false;
+        $('rankMsg').textContent = '提交失败，请重试';
       });
     };
   }

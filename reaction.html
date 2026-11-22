@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>⚡ 反应速度 · WarmJam 的小游戏</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -253,6 +253,9 @@
           e.preventDefault();
           onBtn(idx);
         }, { passive: false });
+        b.addEventListener('keydown', function (e) {
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onBtn(idx); }
+        });
         grid.appendChild(b);
         btns.push(b);
       })(i);
@@ -290,13 +293,16 @@
           msg.textContent = r.remote ? '未进入前十，继续加油！' : '提交失败，已记入本机';
           msg.className = '';
         }
+      }).catch(function () {
+        $('submitBtn').disabled = false;
+        $('rankMsg').textContent = '提交失败，请重试';
       });
     };
   }
 
   $('startBtn').addEventListener('click', startGame);
   $('retryBtn').addEventListener('click', startGame);
-  $('menuBtn').addEventListener('click', function () { clearTimeout(timer); show('menu'); });
+  $('menuBtn').addEventListener('click', function () { clearTimeout(timer); state = 'idle'; show('menu'); });
 })();
 </script>
 </body>
