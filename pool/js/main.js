@@ -90,6 +90,29 @@
   };
   guideBtn();
 
+  // ---------------- 天眼模式（隐藏） ----------------
+  // 菜单里“台呢”标签连点 5 次开关，打开后该标签字体变红；界面上没有任何入口
+  let xray = false;
+  let xrayClicks = 0, xrayLast = 0;
+  const paintClothLabel = () => {
+    const el = document.querySelector('[data-i18n="row.cloth"]');
+    if (el) el.style.color = xray ? '#ff4a4a' : '';
+  };
+  const clothEl = document.querySelector('[data-i18n="row.cloth"]');
+  if (clothEl) {
+    clothEl.addEventListener('click', () => {
+      const now = performance.now();
+      xrayClicks = now - xrayLast > 2000 ? 1 : xrayClicks + 1;
+      xrayLast = now;
+      if (xrayClicks >= 5) {
+        xrayClicks = 0;
+        xray = !xray;
+        adv.key = '';
+        paintClothLabel();
+      }
+    });
+  }
+
   // ---------------- 新游戏 ----------------
   let overTimer = 0; // 结算框延时弹出的计时器：重新开局时要取消，否则会盖在新局上
   function newGame() {
@@ -392,19 +415,35 @@
       const c2 = s2.get(0);
       s2.strike(c2, aim.ang, BP.powerToV(Math.max(aim.power, 0.3)), aim.a, aim.b, (aim.elev * Math.PI) / 180);
       const o2 = first ? s2.get(first.id) : null;
+      let cuePot = -1, objPot = -1;
+      const potEv = { pot(b, i) { if (b.id === 0) cuePot = i; else if (first && b.id === first.id) objPot = i; } };
       for (let t = 0; t < 5 && s2.moving(); t += 1 / 600) {
-        s2.step(1 / 600);
+        s2.step(1 / 600, potEv);
         if (++n % 12 === 0) {
           if (c2.on) cp.push([c2.x, c2.y]);
           if (o2 && o2.on && (o2.vx || o2.vy)) op.push([o2.x, o2.y]);
         }
       }
       if (c2.on) cp.push([c2.x, c2.y]);
-      adv.res = { cuePath: cp, objPath: op };
+      // 两球最终停下的位置：进袋的球停在袋口中心，没进的停在最后位置
+      const endPos = (b, potIdx) => {
+        if (!b) return null;
+        if (potIdx >= 0) {
+          const p = table.pockets[potIdx];
+          return [p.hx != null ? p.hx : p.x, p.hy != null ? p.hy : p.y];
+        }
+        return [b.x, b.y];
+      };
+      adv.res = { cuePath: cp, objPath: op, cueEnd: endPos(c2, cuePot), objEnd: first ? endPos(o2, objPot) : null, cuePot, objPot, objId: first ? first.id : null };
     }
     if (adv.res) {
       g.cuePath = adv.res.cuePath;
       g.objPath = adv.res.objPath.length > 1 ? adv.res.objPath : null;
+      g.cueEnd = adv.res.cueEnd;
+      g.objEnd = adv.res.objEnd;
+      g.cuePot = adv.res.cuePot;
+      g.objPot = adv.res.objPot;
+      g.objId = adv.res.objId;
       g.tan = null;
     }
     return g;
@@ -833,9 +872,10 @@
       const st = { sim, tableOpts: { cloth: opts.cloth === 'auto' ? null : opts.cloth, apex: rules.footApex } };
       if (aiming && cue.on) {
         st.cue = { x: cue.x, y: cue.y, ang: aim.ang, pull: aim.pull, elev: aim.elev };
-        if (guideMode > 0 && phase !== 'shooting') {
+        if ((guideMode > 0 || xray) && phase !== 'shooting') {
           let g = guideBasic();
-          if (guideMode === 2) g = guideAdvanced(g);
+          if (guideMode === 2 || xray) g = guideAdvanced(g);
+          if (xray) g.xray = true;
           st.guide = g;
           if (rules.needCall(sim) && !manualCall && phase === 'aim') called = autoPocket();
         }
@@ -857,6 +897,7 @@
   document.querySelectorAll('[data-lang]').forEach((b) => (b.onclick = () => BP.setLang(b.dataset.lang)));
   window.addEventListener('langchange', () => {
     guideBtn();
+    paintClothLabel();
     updateSpinUI();
     updateElevUI();
     setPowerUI(aim.power);

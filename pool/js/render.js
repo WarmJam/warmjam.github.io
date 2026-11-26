@@ -680,6 +680,40 @@
       if (g.tan) line(g.tan, 'rgba(160,220,255,0.75)', 1.4, [5, 4]);
       if (g.cuePath) line(g.cuePath, 'rgba(255,255,255,0.55)', 1.4, [3, 4]);
       if (g.objPath) line(g.objPath, 'rgba(255,230,120,0.55)', 1.4, [3, 4]);
+      if (g.xray) {
+        // 天眼模式：白球与目标球最终停下的位置（圆圈+十字），以及目标球是否能进
+        const markEnd = (pt, col) => {
+          if (!pt) return;
+          const [x, y] = P(pt[0], pt[1]);
+          ctx.strokeStyle = col;
+          ctx.lineWidth = 2 * dpr;
+          ctx.beginPath(); ctx.arc(x, y, rpx * 1.15, 0, 7); ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(x - rpx * 0.6, y); ctx.lineTo(x + rpx * 0.6, y);
+          ctx.moveTo(x, y - rpx * 0.6); ctx.lineTo(x, y + rpx * 0.6);
+          ctx.stroke();
+        };
+        markEnd(g.cueEnd, 'rgba(255,255,255,0.95)');
+        markEnd(g.objEnd, 'rgba(255,230,120,0.95)');
+        if (g.objEnd) {
+          const [x, y] = P(g.objEnd[0], g.objEnd[1]);
+          const ok = g.objPot != null && g.objPot >= 0;
+          ctx.font = `bold ${Math.max(14 * dpr, rpx * 1.1)}px sans-serif`;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'bottom';
+          ctx.fillStyle = ok ? '#3adf7a' : '#ff5a4a';
+          ctx.fillText(ok ? '✓ 能进' : '✗ 不能进', x, y - rpx * 1.5);
+          if (ok) {
+            const pk = this.t.pockets[g.objPot];
+            if (pk) {
+              const [px, py] = P(pk.hx != null ? pk.hx : pk.x, pk.hy != null ? pk.hy : pk.y);
+              ctx.strokeStyle = '#3adf7a';
+              ctx.lineWidth = 2.5 * dpr;
+              ctx.beginPath(); ctx.arc(px, py, rpx * 1.6, 0, 7); ctx.stroke();
+            }
+          }
+        }
+      }
     }
 
     // 精细球杆：皮头/白箍/枫木前节/接牙/尖角镶嵌/手柄缠线/尾节
